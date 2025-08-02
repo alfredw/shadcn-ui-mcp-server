@@ -659,6 +659,240 @@ describe('PGLiteStorageProvider', () => {
     });
   });
 
+  describe('Eviction Logic Verification', () => {
+    it('should correctly calculate eviction needs with mixed components and blocks', async () => {
+      const testProvider = new PGLiteStorageProvider(undefined, {
+        maxSize: 500 // 500 bytes limit
+      });
+      await testProvider.initialize();
+      
+      try {
+        await testProvider.clear();
+        
+        // Add components and blocks that total exactly 600 bytes (over limit)
+        await testProvider.setComponent({
+          framework: 'react',
+          name: 'evict-comp1',
+          sourceCode: 'component 1',
+          fileSize: 200
+        });
+        
+        await testProvider.setBlock({
+          framework: 'react', 
+          name: 'evict-block1',
+          files: { 'file1.tsx': 'block content' },
+          totalSize: 150
+        });
+        
+        await testProvider.setComponent({
+          framework: 'react',
+          name: 'evict-comp2', 
+          sourceCode: 'component 2',
+          fileSize: 250
+        });
+        
+        // Total: 200 + 150 + 250 = 600 bytes (exceeds 500 byte limit)
+        const initialSize = await testProvider.getCurrentCacheSize();
+        assert.strictEqual(initialSize, 600);
+        
+        // Enforce size limits
+        const evicted = await testProvider.enforceMaxSize();
+        assert.ok(evicted > 0); // Should evict at least one item
+        
+        // Final size should be within limits
+        const finalSize = await testProvider.getCurrentCacheSize();
+        assert.ok(finalSize <= 500);
+        
+      } finally {
+        await testProvider.dispose();
+      }
+    });
+    
+    it('should evict LRU items correctly with mixed data types', async () => {
+      await provider.clear();
+      
+      // Add items with specific access patterns
+      await provider.setComponent({
+        framework: 'react',
+        name: 'oldest-comp',
+        sourceCode: 'oldest component',
+        fileSize: 100
+      });
+      
+      await provider.setBlock({
+        framework: 'react',
+        name: 'oldest-block', 
+        files: { 'old.tsx': 'old block' },
+        totalSize: 150
+      });
+      
+      // Wait a moment to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      await provider.setComponent({
+        framework: 'react',
+        name: 'newer-comp',
+        sourceCode: 'newer component', 
+        fileSize: 200
+      });
+      
+      // Access the newer items to update their access time
+      await provider.getComponent('react', 'newer-comp');
+      
+      // Evict 2 items (should evict the oldest ones)
+      const evicted = await provider.evictLRU(2);
+      assert.strictEqual(evicted, 2);
+      
+      // Verify the newer item still exists
+      const newerComp = await provider.getComponent('react', 'newer-comp');
+      assert.ok(newerComp);
+      
+      // Verify the older items were evicted
+      const olderComp = await provider.getComponent('react', 'oldest-comp');
+      const olderBlock = await provider.getBlock('react', 'oldest-block');
+      assert.strictEqual(olderComp, undefined);
+      assert.strictEqual(olderBlock, undefined);
+    });
+    
+    it('should maintain accurate cache size during eviction operations', async () => {
+      const testProvider = new PGLiteStorageProvider(undefined, {
+        maxSize: 400 // 400 bytes limit
+      });
+      await testProvider.initialize();
+      
+      try {
+        await testProvider.clear();
+        
+        // Add items totaling 600 bytes
+        await testProvider.setComponent({
+          framework: 'react',
+          name: 'size-comp1',
+          sourceCode: 'component',
+          fileSize: 200
+        });
+        
+        await testProvider.setComponent({
+          framework: 'react', 
+          name: 'size-comp2',
+          sourceCode: 'component',
+          fileSize: 200
+        });
+        
+        await testProvider.setBlock({
+          framework: 'react',
+          name: 'size-block1',
+          files: { 'file.tsx': 'content' },
+          totalSize: 200  
+        });
+        
+        // Verify initial size
+        let cacheSize = await testProvider.getCurrentCacheSize();
+        assert.strictEqual(cacheSize, 600);
+        
+        // Enforce size limits  
+        const evicted = await testProvider.enforceMaxSize();
+        assert.ok(evicted > 0);
+        
+        // Verify final size is within limits and calculation is accurate
+        cacheSize = await testProvider.getCurrentCacheSize();
+        assert.ok(cacheSize <= 400);
+        
+        // Size should be exactly what we expect based on remaining items
+        const remainingItems = await testProvider.size();
+        assert.ok(remainingItems < 3); // Some items should have been evicted
+        
+      } finally {
+        await testProvider.dispose();
+      }
+    });
+    
+    it('should handle maintenance operations with accurate size calculations', async () => {
+      await provider.clear();
+      
+      // Add test data
+      await provider.setComponent({
+        framework: 'react',
+        name: 'maint-comp',
+        sourceCode: 'maintenance test',
+        fileSize: 100
+      });
+      
+      await provider.setBlock({
+        framework: 'react',
+        name: 'maint-block',
+        files: { 'maint.tsx': 'maintenance content' },
+        totalSize: 200
+      });
+      
+      const initialSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(initialSize, 300);
+      
+      // Perform maintenance
+      const maintenance = await provider.performMaintenance();
+      
+      // Verify maintenance results are consistent with accurate size calculation
+      assert.strictEqual(maintenance.finalSize, await provider.getCurrentCacheSize());
+      assert.strictEqual(maintenance.finalCount, await provider.size());
+      
+      // Final size should be reasonable given our test data
+      assert.ok(maintenance.finalSize >= 0);
+      assert.ok(maintenance.finalSize <= initialSize);
+    });
+    
+    it('should make correct eviction decisions based on actual cache size', async () => {
+      const testProvider = new PGLiteStorageProvider(undefined, {
+        maxSize: 350 // Specific limit for this test
+      });
+      await testProvider.initialize();
+      
+      try {
+        await testProvider.clear();
+        
+        // Carefully add items to test eviction decision making
+        await testProvider.setComponent({
+          framework: 'react',
+          name: 'decision-comp', 
+          sourceCode: 'component for decision test',
+          fileSize: 150
+        });
+        
+        await testProvider.setBlock({
+          framework: 'react',
+          name: 'decision-block',
+          files: { 'decision.tsx': 'block content' },
+          totalSize: 100
+        });
+        
+        // Total: 250 bytes (under limit)
+        let needsEviction = await testProvider.getCurrentCacheSize() > testProvider.config.maxSize;
+        assert.strictEqual(needsEviction, false);
+        
+        // Add another item to push over the limit
+        await testProvider.setComponent({
+          framework: 'react',
+          name: 'overflow-comp',
+          sourceCode: 'this pushes us over limit',
+          fileSize: 150  
+        });
+        
+        // Total: 400 bytes (over 350 limit)
+        needsEviction = await testProvider.getCurrentCacheSize() > testProvider.config.maxSize;
+        assert.strictEqual(needsEviction, true);
+        
+        // Enforce size should now evict
+        const evicted = await testProvider.enforceMaxSize();
+        assert.ok(evicted > 0);
+        
+        // Should now be within limits
+        const finalSize = await testProvider.getCurrentCacheSize();
+        assert.ok(finalSize <= testProvider.config.maxSize);
+        
+      } finally {
+        await testProvider.dispose();
+      }
+    });
+  });
+
   describe('Metadata Operations', () => {
     it('should track metadata for components', async () => {
       const component = { framework: 'react', name: 'meta-test', sourceCode: 'code' };
@@ -764,6 +998,197 @@ describe('PGLiteStorageProvider', () => {
       
       const currentSize = await provider.getCurrentCacheSize();
       assert.ok(currentSize >= 579); // 123 + 456
+    });
+  });
+
+  describe('Cache Size Validation', () => {
+    it('should accurately calculate cache size with only components', async () => {
+      // Clear cache for clean test
+      await provider.clear();
+      
+      // Add components with known sizes
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'comp1', 
+        sourceCode: 'code1', 
+        fileSize: 100 
+      });
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'comp2', 
+        sourceCode: 'code2', 
+        fileSize: 200 
+      });
+      
+      const cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 300); // 100 + 200
+    });
+    
+    it('should accurately calculate cache size with only blocks', async () => {
+      // Clear cache for clean test
+      await provider.clear();
+      
+      // Add blocks with known sizes
+      await provider.setBlock({ 
+        framework: 'react', 
+        name: 'block1', 
+        files: { 'file1.tsx': 'content1' },
+        totalSize: 500 
+      });
+      await provider.setBlock({ 
+        framework: 'react', 
+        name: 'block2', 
+        files: { 'file2.tsx': 'content2' },
+        totalSize: 300 
+      });
+      
+      const cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 800); // 500 + 300
+    });
+    
+    it('should accurately calculate cache size with mixed components and blocks', async () => {
+      // Clear cache for clean test
+      await provider.clear();
+      
+      // Add components
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'mixed-comp1', 
+        sourceCode: 'component code', 
+        fileSize: 150 
+      });
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'mixed-comp2', 
+        sourceCode: 'another component', 
+        fileSize: 250 
+      });
+      
+      // Add blocks
+      await provider.setBlock({ 
+        framework: 'react', 
+        name: 'mixed-block1', 
+        files: { 'page.tsx': 'block content' },
+        totalSize: 400 
+      });
+      await provider.setBlock({ 
+        framework: 'react', 
+        name: 'mixed-block2', 
+        files: { 'layout.tsx': 'layout content' },
+        totalSize: 600 
+      });
+      
+      const cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 1400); // 150 + 250 + 400 + 600
+    });
+    
+    it('should return 0 for empty cache', async () => {
+      await provider.clear();
+      
+      const cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 0);
+    });
+    
+    it('should handle null file sizes correctly', async () => {
+      await provider.clear();
+      
+      // Add component without explicit file size (should be null in DB)
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'no-size-comp', 
+        sourceCode: 'code without size'
+        // fileSize intentionally omitted
+      });
+      
+      // Add block without explicit total size
+      await provider.setBlock({ 
+        framework: 'react', 
+        name: 'no-size-block', 
+        files: { 'file.tsx': 'content' }
+        // totalSize intentionally omitted
+      });
+      
+      const cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 0); // Should handle nulls gracefully
+    });
+    
+    it('should track cache size changes during operations', async () => {
+      await provider.clear();
+      
+      // Initial size should be 0
+      let cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 0);
+      
+      // Add first item
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'track1', 
+        sourceCode: 'code1', 
+        fileSize: 100 
+      });
+      
+      cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 100);
+      
+      // Add second item
+      await provider.setBlock({ 
+        framework: 'react', 
+        name: 'track2', 
+        files: { 'file.tsx': 'content' },
+        totalSize: 200 
+      });
+      
+      cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 300);
+      
+      // Delete first item
+      await provider.delete('component:react:track1');
+      
+      cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 200);
+      
+      // Clear all
+      await provider.clear();
+      
+      cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 0);
+    });
+    
+    it('should maintain accurate size during updates', async () => {
+      await provider.clear();
+      
+      // Add initial component
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'update-test', 
+        sourceCode: 'initial code', 
+        fileSize: 100 
+      });
+      
+      let cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 100);
+      
+      // Update with larger size
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'update-test', 
+        sourceCode: 'much larger code content', 
+        fileSize: 300 
+      });
+      
+      cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 300);
+      
+      // Update with smaller size
+      await provider.setComponent({ 
+        framework: 'react', 
+        name: 'update-test', 
+        sourceCode: 'small', 
+        fileSize: 50 
+      });
+      
+      cacheSize = await provider.getCurrentCacheSize();
+      assert.strictEqual(cacheSize, 50);
     });
   });
 

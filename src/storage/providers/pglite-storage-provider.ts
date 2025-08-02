@@ -1188,20 +1188,13 @@ export class PGLiteStorageProvider extends BaseStorageProvider {
     
     const query = `
       SELECT 
-        COALESCE(SUM(file_size), 0) as component_size
-      FROM components
-      UNION ALL
-      SELECT 
-        COALESCE(SUM(total_size), 0) as block_size
-      FROM blocks
+        (COALESCE((SELECT SUM(file_size) FROM components), 0) + 
+         COALESCE((SELECT SUM(total_size) FROM blocks), 0)) as total_size
     `;
     
-    const rows = await executeQuery<{component_size: number}>(query);
+    const rows = await executeQuery<{total_size: number}>(query);
     
-    let totalSize = 0;
-    for (const row of rows) {
-      totalSize += row.component_size || 0;
-    }
+    const totalSize = rows[0]?.total_size || 0;
     
     return totalSize;
   }
