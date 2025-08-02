@@ -1,4 +1,5 @@
 import { getAxiosImplementation } from '../../utils/framework.js';
+import { getCachedData, generateBlockKey } from '../../utils/storage-integration.js';
 import { logError } from '../../utils/logger.js';
 
 export async function handleGetBlock({ 
@@ -9,8 +10,18 @@ export async function handleGetBlock({
   includeComponents?: boolean 
 }) {
   try {
-    const axios = await getAxiosImplementation();
-    const blockData = await axios.getBlockCode(blockName, includeComponents);
+    const cacheKey = generateBlockKey(blockName, includeComponents);
+    const cachedTTL = 24 * 60 * 60; // 24 hours for blocks
+    
+    const blockData = await getCachedData(
+      cacheKey,
+      async () => {
+        const axios = await getAxiosImplementation();
+        return await axios.getBlockCode(blockName, includeComponents);
+      },
+      cachedTTL
+    );
+    
     return {
       content: [{ type: "text", text: JSON.stringify(blockData, null, 2) }]
     };

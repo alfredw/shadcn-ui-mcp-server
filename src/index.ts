@@ -14,6 +14,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { setupHandlers } from './handler.js';
 import { validateFrameworkSelection, getAxiosImplementation } from './utils/framework.js';
+import { initializeStorage, disposeStorage } from './utils/storage-integration.js';
 import { z } from 'zod';
 import { 
   toolHandlers,
@@ -114,6 +115,14 @@ async function main() {
       logInfo('GitHub API configured with token');
     } else {
       logWarning('No GitHub API key provided. Rate limited to 60 requests/hour.');
+    }
+
+    // Initialize hybrid storage system
+    try {
+      await initializeStorage();
+      logInfo('Hybrid storage system initialized');
+    } catch (error) {
+      logError('Failed to initialize storage system, continuing without caching', error);
     }
 
     // Initialize the MCP server with metadata and capabilities
@@ -292,6 +301,13 @@ async function main() {
                   }
                 }
               }
+            },
+            "get_storage_stats": {
+              description: "Get hybrid storage statistics and performance metrics",
+              inputSchema: {
+                type: "object",
+                properties: {}
+              }
             }
           }
         }
@@ -310,8 +326,24 @@ async function main() {
     
     logInfo('Server started successfully');
 
+    // Handle graceful shutdown
+    const cleanup = async () => {
+      logInfo('Shutting down server...');
+      try {
+        await disposeStorage();
+        logInfo('Storage disposed successfully');
+      } catch (error) {
+        logError('Error disposing storage', error);
+      }
+      process.exit(0);
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+
   } catch (error) {
     logError('Failed to start server', error);
+    await disposeStorage().catch(() => {}); // Best effort cleanup
     process.exit(1);
   }
 }

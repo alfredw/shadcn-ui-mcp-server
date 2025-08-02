@@ -1,10 +1,21 @@
 import { getAxiosImplementation } from '../../utils/framework.js';
+import { getCachedData, generateComponentKey } from '../../utils/storage-integration.js';
 import { logError } from '../../utils/logger.js';
 
 export async function handleGetComponent({ componentName }: { componentName: string }) {
   try {
-    const axios = await getAxiosImplementation();
-    const sourceCode = await axios.getComponentSource(componentName);
+    const cacheKey = generateComponentKey(componentName);
+    const cachedTTL = 24 * 60 * 60; // 24 hours for components
+    
+    const sourceCode = await getCachedData(
+      cacheKey,
+      async () => {
+        const axios = await getAxiosImplementation();
+        return await axios.getComponentSource(componentName);
+      },
+      cachedTTL
+    );
+    
     return {
       content: [{ type: "text", text: sourceCode }]
     };

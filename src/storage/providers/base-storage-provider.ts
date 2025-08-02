@@ -87,6 +87,7 @@ export abstract class BaseStorageProvider implements StorageProvider {
    */
   protected async wrapOperation<T>(operation: string, fn: () => Promise<T>): Promise<T> {
     try {
+      this.ensureNotDisposed();
       const start = Date.now();
       const result = await fn();
       const duration = Date.now() - start;

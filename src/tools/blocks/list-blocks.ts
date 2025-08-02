@@ -1,10 +1,21 @@
 import { getAxiosImplementation } from '../../utils/framework.js';
+import { getCachedData, generateListKey } from '../../utils/storage-integration.js';
 import { logError } from '../../utils/logger.js';
 
 export async function handleListBlocks({ category }: { category?: string }) {
   try {
-    const axios = await getAxiosImplementation();
-    const blocks = await axios.getAvailableBlocks(category);
+    const cacheKey = generateListKey('blocks', 'react', category);
+    const cachedTTL = 6 * 60 * 60; // 6 hours for block lists
+    
+    const blocks = await getCachedData(
+      cacheKey,
+      async () => {
+        const axios = await getAxiosImplementation();
+        return await axios.getAvailableBlocks(category);
+      },
+      cachedTTL
+    );
+    
     return {
       content: [{ 
         type: "text", 

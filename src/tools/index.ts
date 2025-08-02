@@ -5,6 +5,7 @@ import { handleGetComponentMetadata } from './components/get-component-metadata.
 import { handleGetDirectoryStructure } from './repository/get-directory-structure.js';
 import { handleGetBlock } from './blocks/get-block.js';
 import { handleListBlocks } from './blocks/list-blocks.js';
+import { handleGetStorageStats } from './storage/get-storage-stats.js';
 
 import { schema as getComponentSchema } from './components/get-component.js';
 import { schema as getComponentDemoSchema } from './components/get-component-demo.js';
@@ -13,6 +14,7 @@ import { schema as getComponentMetadataSchema } from './components/get-component
 import { schema as getDirectoryStructureSchema } from './repository/get-directory-structure.js';
 import { schema as getBlockSchema } from './blocks/get-block.js';
 import { schema as listBlocksSchema } from './blocks/list-blocks.js';
+import { schema as getStorageStatsSchema } from './storage/get-storage-stats.js';
 
 export const toolHandlers = {
   get_component: handleGetComponent,
@@ -21,7 +23,8 @@ export const toolHandlers = {
   get_component_metadata: handleGetComponentMetadata,
   get_directory_structure: handleGetDirectoryStructure,
   get_block: handleGetBlock,
-  list_blocks: handleListBlocks
+  list_blocks: handleListBlocks,
+  get_storage_stats: handleGetStorageStats
 };
 
 export const toolSchemas = {
@@ -31,7 +34,8 @@ export const toolSchemas = {
   get_component_metadata: getComponentMetadataSchema,
   get_directory_structure: getDirectoryStructureSchema,
   get_block: getBlockSchema,
-  list_blocks: listBlocksSchema
+  list_blocks: listBlocksSchema,
+  get_storage_stats: getStorageStatsSchema
 };
 
 export const tools = {
@@ -93,6 +97,14 @@ export const tools = {
     inputSchema: {
       type: 'object',
       properties: listBlocksSchema
+    }
+  },
+  'get_storage_stats': {
+    name: 'get_storage_stats',
+    description: 'Get hybrid storage statistics and performance metrics',
+    inputSchema: {
+      type: 'object',
+      properties: getStorageStatsSchema
     }
   }
 }; 

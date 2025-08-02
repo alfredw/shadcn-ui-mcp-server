@@ -204,6 +204,14 @@ export const setupHandlers = (server: Server): void => {
               },
             },
           },
+          {
+            name: 'get_storage_stats',
+            description: 'Get hybrid storage statistics and performance metrics',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
         ];
         
         return { tools: registeredTools };
