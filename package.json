@@ -18,7 +18,8 @@
     "prepublishOnly": "npm run clean && npm run build && chmod +x build/index.js",
     "start": "node build/index.js",
     "dev": "tsc && node build/index.js",
-    "test": "./test-package.sh",
+    "test": "npm run build && node --test test/**/*.test.js",
+    "test:package": "./test-package.sh",
     "examples": "./examples.sh"
   },
   "keywords": [
