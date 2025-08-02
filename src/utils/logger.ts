@@ -27,4 +27,13 @@ export function logWarning(message: string): void {
  */
 export function logInfo(message: string): void {
   console.error(`INFO: ${message}`);
-} 
+}
+
+/**
+ * Logger object for compatibility with existing code
+ */
+export const logger = {
+  error: (message: string, error?: any) => logError(message, error),
+  warn: (message: string) => logWarning(message),
+  info: (message: string) => logInfo(message)
+}; 
