@@ -6,6 +6,7 @@ import { logError, logWarning, logInfo } from '../../utils/logger.js';
  */
 export abstract class BaseStorageProvider implements StorageProvider {
   protected config: Required<StorageProviderConfig>;
+  protected disposed = false;
   
   constructor(config: StorageProviderConfig = {}) {
     this.config = {
@@ -120,6 +121,35 @@ export abstract class BaseStorageProvider implements StorageProvider {
     
     const regex = new RegExp(`^${regexPattern}$`);
     return keys.filter(key => regex.test(key));
+  }
+  
+  /**
+   * Guard against operations on disposed provider
+   * @throws Error if provider has been disposed
+   */
+  protected ensureNotDisposed(): void {
+    if (this.disposed) {
+      throw new Error('Storage provider has been disposed and cannot be used');
+    }
+  }
+  
+  /**
+   * Default disposal implementation - subclasses can override for custom cleanup
+   */
+  async dispose(): Promise<void> {
+    if (this.disposed) {
+      return;
+    }
+    
+    this.debug('Disposing storage provider');
+    this.disposed = true;
+  }
+  
+  /**
+   * Check if provider has been disposed
+   */
+  isDisposed(): boolean {
+    return this.disposed;
   }
   
   // Abstract methods that must be implemented by subclasses

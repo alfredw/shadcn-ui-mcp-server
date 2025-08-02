@@ -11,6 +11,8 @@ export interface DatabaseConfig {
 }
 
 export class PGLiteManager {
+  private static activeConnections = new Set<PGLiteManager>();
+  
   private db: PGlite | null = null;
   private config: DatabaseConfig;
   private schemaVersion: number = 1;
@@ -24,6 +26,9 @@ export class PGLiteManager {
       busyTimeout: 5000,
       ...config
     };
+    
+    // Add instance to active connections tracking
+    PGLiteManager.activeConnections.add(this);
   }
   
   async initialize(): Promise<void> {
@@ -161,6 +166,7 @@ export class PGLiteManager {
     if (this.db) {
       await this.db.close();
       this.db = null;
+      PGLiteManager.activeConnections.delete(this);
       logger.info('PGLite database closed');
     }
   }
@@ -228,5 +234,24 @@ export class PGLiteManager {
       componentCount,
       blockCount
     };
+  }
+  
+  /**
+   * Get the number of active PGLite manager instances
+   * @returns Number of active connections
+   */
+  static getActiveConnectionCount(): number {
+    return PGLiteManager.activeConnections.size;
+  }
+  
+  /**
+   * Close all active PGLite manager instances
+   * Useful for cleanup during shutdown
+   */
+  static async closeAllConnections(): Promise<void> {
+    const promises = Array.from(PGLiteManager.activeConnections).map(manager => 
+      manager.close().catch(err => logger.error('Error closing connection:', err))
+    );
+    await Promise.all(promises);
   }
 }

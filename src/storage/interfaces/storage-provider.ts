@@ -109,6 +109,18 @@ export interface StorageProvider {
    * @returns Number of items
    */
   size(): Promise<number>;
+  
+  /**
+   * Dispose of all resources and close connections
+   * @returns Promise that resolves when cleanup is complete
+   */
+  dispose(): Promise<void>;
+  
+  /**
+   * Check if the provider has been disposed
+   * @returns True if disposed, false otherwise
+   */
+  isDisposed(): boolean;
 }
 
 /**
