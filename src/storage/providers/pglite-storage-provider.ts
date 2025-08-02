@@ -404,8 +404,11 @@ export class PGLiteStorageProvider extends BaseStorageProvider {
     
     const row = checkRows[0];
     
-    // Check if expired (using default TTL)
-    if (this.isExpiredByTTL(row.cached_at, this.config.defaultTTL)) {
+    // Check if expired (using database-calculated age to avoid timezone issues)
+    const ageSeconds = parseFloat(row.age_seconds || 0);
+    const isExpired = this.config.defaultTTL > 0 && ageSeconds > this.config.defaultTTL;
+    
+    if (isExpired) {
       // Delete expired component
       await this.deleteComponent(framework, name);
       return undefined;
@@ -698,14 +701,16 @@ export class PGLiteStorageProvider extends BaseStorageProvider {
   
   private async deleteComponent(framework: string, name: string): Promise<boolean> {
     const query = 'DELETE FROM components WHERE framework = $1 AND name = $2';
-    const rows = await executeQuery(query, [framework, name]);
-    return rows.length > 0;
+    const db = await this.getDb();
+    const result = await db.query(query, [framework, name]);
+    return (result.affectedRows || 0) > 0;
   }
   
   private async deleteBlock(framework: string, name: string): Promise<boolean> {
     const query = 'DELETE FROM blocks WHERE framework = $1 AND name = $2';
-    const rows = await executeQuery(query, [framework, name]);
-    return rows.length > 0;
+    const db = await this.getDb();
+    const result = await db.query(query, [framework, name]);
+    return (result.affectedRows || 0) > 0;
   }
   
   private async getComponentKeys(): Promise<string[]> {
@@ -967,8 +972,9 @@ export class PGLiteStorageProvider extends BaseStorageProvider {
       WHERE framework = $1 AND name = $2
     `;
     
-    const result = await executeQuery(query, [framework, name]);
-    const refreshed = (result as any).rowCount > 0;
+    const db = await this.getDb();
+    const result = await db.query(query, [framework, name]);
+    const refreshed = (result.affectedRows || 0) > 0;
     
     if (refreshed) {
       this.debug(`Refreshed TTL for ${type}: ${framework}:${name}`);

@@ -569,14 +569,21 @@ describe('PGLiteStorageProvider', () => {
       
       const initialTTL = await provider.getTTLRemaining('react', 'refresh-test', 'component');
       
-      // Wait a bit
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait a bit longer to ensure a measurable difference
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Get TTL before refresh (should be lower)
+      const beforeRefreshTTL = await provider.getTTLRemaining('react', 'refresh-test', 'component');
       
       const refreshed = await provider.refreshTTL('react', 'refresh-test', 'component');
       assert.strictEqual(refreshed, true);
       
       const newTTL = await provider.getTTLRemaining('react', 'refresh-test', 'component');
-      assert.ok(newTTL > initialTTL);
+      
+      // After refresh, TTL should be higher than before refresh
+      assert.ok(newTTL > beforeRefreshTTL, `New TTL (${newTTL}) should be > before refresh TTL (${beforeRefreshTTL})`);
+      // And should be close to the original TTL (within 1 second due to rounding)
+      assert.ok(Math.abs(newTTL - initialTTL) <= 1, `New TTL (${newTTL}) should be close to initial TTL (${initialTTL})`);
     });
   });
 
