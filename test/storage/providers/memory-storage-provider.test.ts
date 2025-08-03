@@ -1,9 +1,14 @@
-import { describe, it, beforeEach, after } from 'node:test';
-import assert from 'node:assert';
+/**
+ * Memory Storage Provider Tests - Vitest Edition
+ * Converted from Node.js native test to Vitest
+ */
+
+import { describe, it, beforeEach, afterAll } from 'vitest';
+import { expect } from 'vitest';
 import { MemoryStorageProvider } from '../../../build/storage/providers/memory-storage-provider.js';
 
 describe('MemoryStorageProvider', () => {
-  let provider;
+  let provider: MemoryStorageProvider;
 
   beforeEach(() => {
     provider = new MemoryStorageProvider({
@@ -13,7 +18,7 @@ describe('MemoryStorageProvider', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (provider) {
       await provider.clear();
     }
@@ -27,22 +32,22 @@ describe('MemoryStorageProvider', () => {
       await provider.set(key, value);
       const retrieved = await provider.get(key);
       
-      assert.deepStrictEqual(retrieved, value);
+      expect(retrieved).toEqual(value);
     });
 
     it('should return undefined for non-existent keys', async () => {
       const result = await provider.get('non-existent');
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
     });
 
     it('should check key existence correctly', async () => {
       const key = 'test:exists';
       const value = 'test value';
       
-      assert.strictEqual(await provider.has(key), false);
+      expect(await provider.has(key)).toBe(false);
       
       await provider.set(key, value);
-      assert.strictEqual(await provider.has(key), true);
+      expect(await provider.has(key)).toBe(true);
     });
 
     it('should delete keys correctly', async () => {
@@ -50,29 +55,29 @@ describe('MemoryStorageProvider', () => {
       const value = 'test value';
       
       await provider.set(key, value);
-      assert.strictEqual(await provider.has(key), true);
+      expect(await provider.has(key)).toBe(true);
       
       const deleted = await provider.delete(key);
-      assert.strictEqual(deleted, true);
-      assert.strictEqual(await provider.has(key), false);
+      expect(deleted).toBe(true);
+      expect(await provider.has(key)).toBe(false);
     });
 
     it('should return false when deleting non-existent keys', async () => {
       const deleted = await provider.delete('non-existent');
-      assert.strictEqual(deleted, false);
+      expect(deleted).toBe(false);
     });
 
     it('should clear all data', async () => {
       await provider.set('key1', 'value1');
       await provider.set('key2', 'value2');
       
-      assert.strictEqual(await provider.size(), 2);
+      expect(await provider.size()).toBe(2);
       
       await provider.clear();
       
-      assert.strictEqual(await provider.size(), 0);
-      assert.strictEqual(await provider.has('key1'), false);
-      assert.strictEqual(await provider.has('key2'), false);
+      expect(await provider.size()).toBe(0);
+      expect(await provider.has('key1')).toBe(false);
+      expect(await provider.has('key2')).toBe(false);
     });
   });
 
@@ -88,11 +93,11 @@ describe('MemoryStorageProvider', () => {
       
       const result = await provider.mget(['key1', 'key2', 'key3', 'nonexistent']);
       
-      assert.strictEqual(result.size, 3);
-      assert.strictEqual(result.get('key1'), 'value1');
-      assert.strictEqual(result.get('key2'), 'value2');
-      assert.strictEqual(result.get('key3'), 'value3');
-      assert.strictEqual(result.has('nonexistent'), false);
+      expect(result.size).toBe(3);
+      expect(result.get('key1')).toBe('value1');
+      expect(result.get('key2')).toBe('value2');
+      expect(result.get('key3')).toBe('value3');
+      expect(result.has('nonexistent')).toBe(false);
     });
 
     it('should set multiple values at once', async () => {
@@ -103,8 +108,8 @@ describe('MemoryStorageProvider', () => {
       
       await provider.mset(data);
       
-      assert.deepStrictEqual(await provider.get('batch1'), { data: 'test1' });
-      assert.deepStrictEqual(await provider.get('batch2'), { data: 'test2' });
+      expect(await provider.get('batch1')).toEqual({ data: 'test1' });
+      expect(await provider.get('batch2')).toEqual({ data: 'test2' });
     });
 
     it('should set multiple values with TTL', async () => {
@@ -115,14 +120,14 @@ describe('MemoryStorageProvider', () => {
       
       await provider.mset(data, 1); // 1 second TTL
       
-      assert.strictEqual(await provider.has('ttl1'), true);
-      assert.strictEqual(await provider.has('ttl2'), true);
+      expect(await provider.has('ttl1')).toBe(true);
+      expect(await provider.has('ttl2')).toBe(true);
       
       // Wait for expiration
       await new Promise(resolve => setTimeout(resolve, 1100));
       
-      assert.strictEqual(await provider.has('ttl1'), false);
-      assert.strictEqual(await provider.has('ttl2'), false);
+      expect(await provider.has('ttl1')).toBe(false);
+      expect(await provider.has('ttl2')).toBe(false);
     });
   });
 
@@ -134,10 +139,10 @@ describe('MemoryStorageProvider', () => {
       
       const keys = await provider.keys();
       
-      assert.strictEqual(keys.length, 3);
-      assert.ok(keys.includes('test:1'));
-      assert.ok(keys.includes('test:2'));
-      assert.ok(keys.includes('other:1'));
+      expect(keys).toHaveLength(3);
+      expect(keys).toContain('test:1');
+      expect(keys).toContain('test:2');
+      expect(keys).toContain('other:1');
     });
 
     it('should filter keys by pattern', async () => {
@@ -148,25 +153,25 @@ describe('MemoryStorageProvider', () => {
       const testKeys = await provider.keys('test:*');
       const otherKeys = await provider.keys('other:*');
       
-      assert.strictEqual(testKeys.length, 2);
-      assert.ok(testKeys.includes('test:1'));
-      assert.ok(testKeys.includes('test:2'));
+      expect(testKeys).toHaveLength(2);
+      expect(testKeys).toContain('test:1');
+      expect(testKeys).toContain('test:2');
       
-      assert.strictEqual(otherKeys.length, 1);
-      assert.ok(otherKeys.includes('other:1'));
+      expect(otherKeys).toHaveLength(1);
+      expect(otherKeys).toContain('other:1');
     });
 
     it('should return accurate size', async () => {
-      assert.strictEqual(await provider.size(), 0);
+      expect(await provider.size()).toBe(0);
       
       await provider.set('key1', 'value1');
-      assert.strictEqual(await provider.size(), 1);
+      expect(await provider.size()).toBe(1);
       
       await provider.set('key2', 'value2');
-      assert.strictEqual(await provider.size(), 2);
+      expect(await provider.size()).toBe(2);
       
       await provider.delete('key1');
-      assert.strictEqual(await provider.size(), 1);
+      expect(await provider.size()).toBe(1);
     });
   });
 
@@ -179,13 +184,13 @@ describe('MemoryStorageProvider', () => {
       
       const metadata = await provider.getMetadata(key);
       
-      assert.ok(metadata);
-      assert.strictEqual(metadata.key, key);
-      assert.ok(metadata.size > 0);
-      assert.ok(metadata.createdAt instanceof Date);
-      assert.ok(metadata.updatedAt instanceof Date);
-      assert.ok(metadata.accessedAt instanceof Date);
-      assert.strictEqual(metadata.accessCount, 0);
+      expect(metadata).toBeTruthy();
+      expect(metadata!.key).toBe(key);
+      expect(metadata!.size).toBeGreaterThan(0);
+      expect(metadata!.createdAt).toBeInstanceOf(Date);
+      expect(metadata!.updatedAt).toBeInstanceOf(Date);
+      expect(metadata!.accessedAt).toBeInstanceOf(Date);
+      expect(metadata!.accessCount).toBe(0);
     });
 
     it('should update access count and timestamp on retrieval', async () => {
@@ -197,17 +202,17 @@ describe('MemoryStorageProvider', () => {
       // First access
       await provider.get(key);
       let metadata = await provider.getMetadata(key);
-      assert.strictEqual(metadata.accessCount, 1);
+      expect(metadata!.accessCount).toBe(1);
       
       // Second access
       await provider.get(key);
       metadata = await provider.getMetadata(key);
-      assert.strictEqual(metadata.accessCount, 2);
+      expect(metadata!.accessCount).toBe(2);
     });
 
     it('should return null for non-existent key metadata', async () => {
       const metadata = await provider.getMetadata('nonexistent');
-      assert.strictEqual(metadata, null);
+      expect(metadata).toBeNull();
     });
 
     it('should update metadata on value updates', async () => {
@@ -222,8 +227,8 @@ describe('MemoryStorageProvider', () => {
       await provider.set(key, 'updated');
       const updatedMeta = await provider.getMetadata(key);
       
-      assert.ok(updatedMeta.updatedAt > originalMeta.updatedAt);
-      assert.strictEqual(updatedMeta.createdAt.getTime(), originalMeta.createdAt.getTime());
+      expect(updatedMeta!.updatedAt.getTime()).toBeGreaterThan(originalMeta!.updatedAt.getTime());
+      expect(updatedMeta!.createdAt.getTime()).toBe(originalMeta!.createdAt.getTime());
     });
   });
 
@@ -234,14 +239,14 @@ describe('MemoryStorageProvider', () => {
       
       await provider.set(key, value, 1); // 1 second TTL
       
-      assert.strictEqual(await provider.has(key), true);
-      assert.strictEqual(await provider.get(key), value);
+      expect(await provider.has(key)).toBe(true);
+      expect(await provider.get(key)).toBe(value);
       
       // Wait for expiration
       await new Promise(resolve => setTimeout(resolve, 1100));
       
-      assert.strictEqual(await provider.has(key), false);
-      assert.strictEqual(await provider.get(key), undefined);
+      expect(await provider.has(key)).toBe(false);
+      expect(await provider.get(key)).toBeUndefined();
     });
 
     it('should use default TTL when not specified', async () => {
@@ -251,12 +256,12 @@ describe('MemoryStorageProvider', () => {
       
       await shortTTLProvider.set('default:ttl', 'value');
       
-      assert.strictEqual(await shortTTLProvider.has('default:ttl'), true);
+      expect(await shortTTLProvider.has('default:ttl')).toBe(true);
       
       // Wait for expiration
       await new Promise(resolve => setTimeout(resolve, 1100));
       
-      assert.strictEqual(await shortTTLProvider.has('default:ttl'), false);
+      expect(await shortTTLProvider.has('default:ttl')).toBe(false);
     });
 
     it('should handle zero TTL as no expiration', async () => {
@@ -265,8 +270,8 @@ describe('MemoryStorageProvider', () => {
       // Wait a bit
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      assert.strictEqual(await provider.has('no:expire'), true);
-      assert.strictEqual(await provider.get('no:expire'), 'persistent');
+      expect(await provider.has('no:expire')).toBe(true);
+      expect(await provider.get('no:expire')).toBe('persistent');
     });
   });
 
@@ -278,10 +283,7 @@ describe('MemoryStorageProvider', () => {
       
       const largeValue = 'x'.repeat(200); // 200+ bytes when JSON stringified
       
-      await assert.rejects(
-        async () => await smallProvider.set('large', largeValue),
-        /Storage limit exceeded/
-      );
+      await expect(smallProvider.set('large', largeValue)).rejects.toThrow(/Storage limit exceeded/);
     });
 
     it('should track total size correctly', async () => {
@@ -289,43 +291,31 @@ describe('MemoryStorageProvider', () => {
       await provider.set('size2', 'bb');
       
       const totalSize = await provider.getTotalSize();
-      assert.ok(totalSize > 0);
+      expect(totalSize).toBeGreaterThan(0);
       
       await provider.delete('size1');
       const newTotalSize = await provider.getTotalSize();
-      assert.ok(newTotalSize < totalSize);
+      expect(newTotalSize).toBeLessThan(totalSize);
     });
   });
 
   describe('Key Validation', () => {
     it('should reject empty keys', async () => {
-      await assert.rejects(
-        async () => await provider.set('', 'value'),
-        /Storage key must be a non-empty string/
-      );
+      await expect(provider.set('', 'value')).rejects.toThrow(/Storage key must be a non-empty string/);
     });
 
     it('should reject non-string keys', async () => {
-      await assert.rejects(
-        async () => await provider.set(null, 'value'),
-        /Storage key must be a non-empty string/
-      );
+      await expect(provider.set(null as any, 'value')).rejects.toThrow(/Storage key must be a non-empty string/);
     });
 
     it('should reject overly long keys', async () => {
       const longKey = 'x'.repeat(300);
       
-      await assert.rejects(
-        async () => await provider.set(longKey, 'value'),
-        /Storage key must not exceed 255 characters/
-      );
+      await expect(provider.set(longKey, 'value')).rejects.toThrow(/Storage key must not exceed 255 characters/);
     });
 
     it('should reject keys with control characters', async () => {
-      await assert.rejects(
-        async () => await provider.set('key\x00with\x01control', 'value'),
-        /Storage key contains invalid control characters/
-      );
+      await expect(provider.set('key\x00with\x01control', 'value')).rejects.toThrow(/Storage key contains invalid control characters/);
     });
   });
 
@@ -342,7 +332,7 @@ describe('MemoryStorageProvider', () => {
       
       // Verify all were set
       for (let i = 0; i < 10; i++) {
-        assert.strictEqual(await provider.get(`concurrent:${i}`), `value${i}`);
+        expect(await provider.get(`concurrent:${i}`)).toBe(`value${i}`);
       }
     });
 
@@ -350,13 +340,13 @@ describe('MemoryStorageProvider', () => {
       await provider.set('cleanup:test', 'value', 1);
       
       // Initial size should be 1
-      assert.strictEqual(await provider.size(), 1);
+      expect(await provider.size()).toBe(1);
       
       // Wait for expiration
       await new Promise(resolve => setTimeout(resolve, 1100));
       
       // Size should auto-clean and return 0
-      assert.strictEqual(await provider.size(), 0);
+      expect(await provider.size()).toBe(0);
     });
   });
 
@@ -364,18 +354,18 @@ describe('MemoryStorageProvider', () => {
     it('should return configuration', () => {
       const config = provider.getConfig();
       
-      assert.strictEqual(config.maxSize, 1024 * 1024);
-      assert.strictEqual(config.defaultTTL, 60);
-      assert.strictEqual(config.debug, false);
+      expect(config.maxSize).toBe(1024 * 1024);
+      expect(config.defaultTTL).toBe(60);
+      expect(config.debug).toBe(false);
     });
 
     it('should use default configuration values', () => {
       const defaultProvider = new MemoryStorageProvider();
       const config = defaultProvider.getConfig();
       
-      assert.strictEqual(config.maxSize, 100 * 1024 * 1024);
-      assert.strictEqual(config.defaultTTL, 3600);
-      assert.strictEqual(config.debug, false);
+      expect(config.maxSize).toBe(100 * 1024 * 1024);
+      expect(config.defaultTTL).toBe(3600);
+      expect(config.debug).toBe(false);
     });
   });
 
@@ -385,16 +375,16 @@ describe('MemoryStorageProvider', () => {
       await provider.set('cleanup2', 'value2', 1);
       await provider.set('permanent', 'value3'); // No TTL
       
-      assert.strictEqual(await provider.size(), 3);
+      expect(await provider.size()).toBe(3);
       
       // Wait for expiration
       await new Promise(resolve => setTimeout(resolve, 1100));
       
       const cleaned = await provider.cleanup();
       
-      assert.ok(cleaned >= 0); // Cleanup might find 0 if already cleaned
-      assert.strictEqual(await provider.size(), 1); // Only permanent should remain
-      assert.strictEqual(await provider.has('permanent'), true);
+      expect(cleaned).toBeGreaterThanOrEqual(0); // Cleanup might find 0 if already cleaned
+      expect(await provider.size()).toBe(1); // Only permanent should remain
+      expect(await provider.has('permanent')).toBe(true);
     });
   });
 });

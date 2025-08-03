@@ -1,20 +1,25 @@
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert';
+/**
+ * Database Manager Tests - Vitest Edition
+ * Converted from Node.js native test to Vitest
+ */
+
+import { describe, it, beforeAll, afterAll } from 'vitest';
+import { expect } from 'vitest';
 import { PGLiteManager } from '../../../build/storage/database/manager.js';
 import { rm } from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
 describe('PGLiteManager', () => {
-  let manager;
+  let manager: PGLiteManager;
   const testDbPath = path.join(os.tmpdir(), 'test-shadcn-mcp.db');
 
-  before(async () => {
+  beforeAll(async () => {
     // Clean up any existing test database
     await rm(testDbPath, { force: true, recursive: true });
   });
 
-  after(async () => {
+  afterAll(async () => {
     // Clean up after tests
     if (manager) {
       await manager.close();
@@ -27,7 +32,7 @@ describe('PGLiteManager', () => {
     await manager.initialize();
     
     const isHealthy = await manager.checkHealth();
-    assert.strictEqual(isHealthy, true, 'Database should be healthy after initialization');
+    expect(isHealthy).toBe(true);
   });
 
   it('should create initial schema', async () => {
@@ -43,9 +48,9 @@ describe('PGLiteManager', () => {
     `);
     
     const tableNames = tablesResult.rows.map(row => row.table_name);
-    assert.ok(tableNames.includes('components'), 'Components table should exist');
-    assert.ok(tableNames.includes('blocks'), 'Blocks table should exist');
-    assert.ok(tableNames.includes('schema_migrations'), 'Schema migrations table should exist');
+    expect(tableNames).toContain('components');
+    expect(tableNames).toContain('blocks');
+    expect(tableNames).toContain('schema_migrations');
   });
 
   it('should handle concurrent initialization attempts', async () => {
@@ -62,7 +67,7 @@ describe('PGLiteManager', () => {
     await Promise.all(promises);
     
     const isHealthy = await manager2.checkHealth();
-    assert.strictEqual(isHealthy, true, 'Database should be healthy after concurrent initialization');
+    expect(isHealthy).toBe(true);
     
     await manager2.close();
   });
@@ -70,12 +75,12 @@ describe('PGLiteManager', () => {
   it('should get database statistics', async () => {
     const stats = await manager.getStats();
     
-    assert.ok(stats, 'Stats should be returned');
-    assert.strictEqual(stats.dbPath, testDbPath, 'Database path should match');
-    assert.ok(stats.size >= 0, 'Size should be non-negative');
-    assert.strictEqual(stats.isHealthy, true, 'Database should be healthy');
-    assert.strictEqual(stats.componentCount, 0, 'Component count should be 0 initially');
-    assert.strictEqual(stats.blockCount, 0, 'Block count should be 0 initially');
+    expect(stats).toBeTruthy();
+    expect(stats.dbPath).toBe(testDbPath);
+    expect(stats.size).toBeGreaterThanOrEqual(0);
+    expect(stats.isHealthy).toBe(true);
+    expect(stats.componentCount).toBe(0);
+    expect(stats.blockCount).toBe(0);
   });
 
   it('should handle database operations', async () => {
@@ -89,8 +94,8 @@ describe('PGLiteManager', () => {
     
     // Query data
     const result = await db.query('SELECT * FROM components WHERE name = $1', ['test-component']);
-    assert.strictEqual(result.rows.length, 1, 'Should find inserted component');
-    assert.strictEqual(result.rows[0].name, 'test-component', 'Component name should match');
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].name).toBe('test-component');
   });
 
   it('should handle errors gracefully', async () => {
@@ -98,10 +103,8 @@ describe('PGLiteManager', () => {
       path: '/invalid/path/that/does/not/exist/db.sqlite' 
     });
     
-    await assert.rejects(
-      async () => await invalidManager.initialize(),
-      /Failed to create database directory/,
-      'Should throw error for invalid path'
-    );
+    await expect(
+      invalidManager.initialize()
+    ).rejects.toThrow(/Failed to create database directory/);
   });
 });

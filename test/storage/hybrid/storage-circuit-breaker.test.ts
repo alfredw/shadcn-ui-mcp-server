@@ -1,41 +1,15 @@
-import { describe, it, beforeEach } from 'node:test';
-import assert from 'node:assert';
+/**
+ * Storage Circuit Breaker Tests - Vitest Edition
+ * Converted from Node.js native test to Vitest
+ */
+
+import { describe, it, beforeEach, vi } from 'vitest';
+import { expect } from 'vitest';
 import { StorageCircuitBreaker } from '../../../build/storage/index.js';
 import { CircuitBreakerState } from '../../../build/utils/circuit-breaker.js';
 
-// Simple mock function implementation since Node.js test runner doesn't have built-in mocking
-function createMock(returnValue) {
-  let calls = 0;
-  let callArgs = [];
-  
-  const mockFn = (...args) => {
-    calls++;
-    callArgs.push(args);
-    if (typeof returnValue === 'function') {
-      return returnValue(...args);
-    }
-    return returnValue;
-  };
-  
-  mockFn.mockResolvedValue = (value) => {
-    returnValue = Promise.resolve(value);
-    return mockFn;
-  };
-  
-  mockFn.mockRejectedValue = (error) => {
-    returnValue = Promise.reject(error);
-    return mockFn;
-  };
-  
-  mockFn.toHaveBeenCalled = () => calls > 0;
-  mockFn.toHaveBeenCalledTimes = (expectedCalls) => calls === expectedCalls;
-  mockFn.callCount = () => calls;
-  
-  return mockFn;
-}
-
 describe('StorageCircuitBreaker', () => {
-  let circuitBreaker;
+  let circuitBreaker: StorageCircuitBreaker;
   
   beforeEach(() => {
     circuitBreaker = new StorageCircuitBreaker({
@@ -47,45 +21,45 @@ describe('StorageCircuitBreaker', () => {
   
   describe('Initial State', () => {
     it('should start in CLOSED state', () => {
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.CLOSED);
-      assert.strictEqual(circuitBreaker.allowsRequest(), true);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.CLOSED);
+      expect(circuitBreaker.allowsRequest()).toBe(true);
     });
     
     it('should provide initial status', () => {
       const status = circuitBreaker.getStatus();
       
-      assert.strictEqual(status.state, CircuitBreakerState.CLOSED);
-      assert.strictEqual(status.failureCount, 0);
-      assert.strictEqual(status.isRequestAllowed, true);
+      expect(status.state).toBe(CircuitBreakerState.CLOSED);
+      expect(status.failureCount).toBe(0);
+      expect(status.isRequestAllowed).toBe(true);
     });
     
     it('should provide state description', () => {
       const description = circuitBreaker.getStateDescription();
-      assert.ok(description.includes('Closed'));
-      assert.ok(description.includes('Operating normally'));
+      expect(description).toContain('Closed');
+      expect(description).toContain('Operating normally');
     });
   });
   
   describe('Failure Handling', () => {
     it('should record failures manually', async () => {
-      assert.strictEqual(circuitBreaker.getFailureCount(), 0);
+      expect(circuitBreaker.getFailureCount()).toBe(0);
       
       await circuitBreaker.recordFailure();
-      assert.strictEqual(circuitBreaker.getFailureCount(), 1);
+      expect(circuitBreaker.getFailureCount()).toBe(1);
       
       await circuitBreaker.recordFailure();
-      assert.strictEqual(circuitBreaker.getFailureCount(), 2);
+      expect(circuitBreaker.getFailureCount()).toBe(2);
     });
     
     it('should open after threshold failures', async () => {
       // Record failures up to threshold (3)
       await circuitBreaker.recordFailure();
       await circuitBreaker.recordFailure();
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.CLOSED);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.CLOSED);
       
       await circuitBreaker.recordFailure();
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.OPEN);
-      assert.strictEqual(circuitBreaker.allowsRequest(), false);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.OPEN);
+      expect(circuitBreaker.allowsRequest()).toBe(false);
     });
     
     it('should provide open state description', async () => {
@@ -95,8 +69,8 @@ describe('StorageCircuitBreaker', () => {
       }
       
       const description = circuitBreaker.getStateDescription();
-      assert.ok(description.includes('Open'));
-      assert.ok(description.includes('Failing fast'));
+      expect(description).toContain('Open');
+      expect(description).toContain('Failing fast');
     });
   });
   
@@ -106,13 +80,13 @@ describe('StorageCircuitBreaker', () => {
       for (let i = 0; i < 3; i++) {
         await circuitBreaker.recordFailure();
       }
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.OPEN);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.OPEN);
       
       // Wait for timeout period
       await new Promise(resolve => setTimeout(resolve, 1100)); // Slightly more than 1000ms timeout
       
       // Should now allow requests (transitioning to HALF_OPEN)
-      assert.strictEqual(circuitBreaker.allowsRequest(), true);
+      expect(circuitBreaker.allowsRequest()).toBe(true);
     });
     
     it('should close after successful operations in HALF_OPEN', async () => {
@@ -128,8 +102,8 @@ describe('StorageCircuitBreaker', () => {
       await circuitBreaker.recordSuccess();
       await circuitBreaker.recordSuccess();
       
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.CLOSED);
-      assert.strictEqual(circuitBreaker.getFailureCount(), 0);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.CLOSED);
+      expect(circuitBreaker.getFailureCount()).toBe(0);
     });
     
     it('should reopen on failure in HALF_OPEN state', async () => {
@@ -142,61 +116,61 @@ describe('StorageCircuitBreaker', () => {
       await new Promise(resolve => setTimeout(resolve, 1100));
       
       // First request should be allowed (HALF_OPEN)
-      assert.strictEqual(circuitBreaker.allowsRequest(), true);
+      expect(circuitBreaker.allowsRequest()).toBe(true);
       
       // Failure in HALF_OPEN should reopen the circuit
       await circuitBreaker.recordFailure();
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.OPEN);
-      assert.strictEqual(circuitBreaker.allowsRequest(), false);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.OPEN);
+      expect(circuitBreaker.allowsRequest()).toBe(false);
     });
   });
   
   describe('Manual Control', () => {
     it('should open manually', () => {
-      assert.strictEqual(circuitBreaker.allowsRequest(), true);
+      expect(circuitBreaker.allowsRequest()).toBe(true);
       
       circuitBreaker.open();
-      assert.strictEqual(circuitBreaker.allowsRequest(), false);
+      expect(circuitBreaker.allowsRequest()).toBe(false);
       
       const description = circuitBreaker.getStateDescription();
-      assert.ok(description.includes('Manually opened'));
+      expect(description).toContain('Manually opened');
     });
     
     it('should close manually', async () => {
       // First open it (either manually or through failures)
       circuitBreaker.open();
-      assert.strictEqual(circuitBreaker.allowsRequest(), false);
+      expect(circuitBreaker.allowsRequest()).toBe(false);
       
       // Close manually
       circuitBreaker.close();
-      assert.strictEqual(circuitBreaker.allowsRequest(), true);
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.CLOSED);
-      assert.strictEqual(circuitBreaker.getFailureCount(), 0);
+      expect(circuitBreaker.allowsRequest()).toBe(true);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.CLOSED);
+      expect(circuitBreaker.getFailureCount()).toBe(0);
     });
     
     it('should reset state when closed manually', async () => {
       // Build up some failures
       await circuitBreaker.recordFailure();
       await circuitBreaker.recordFailure();
-      assert.strictEqual(circuitBreaker.getFailureCount(), 2);
+      expect(circuitBreaker.getFailureCount()).toBe(2);
       
       // Manual close should reset everything
       circuitBreaker.close();
-      assert.strictEqual(circuitBreaker.getFailureCount(), 0);
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.CLOSED);
+      expect(circuitBreaker.getFailureCount()).toBe(0);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.CLOSED);
     });
   });
   
   describe('Execute with Fallback', () => {
     it('should execute operation when circuit is closed', async () => {
-      const operation = createMock().mockResolvedValue('success');
-      const fallback = createMock().mockResolvedValue('fallback');
+      const operation = vi.fn().mockResolvedValue('success');
+      const fallback = vi.fn().mockResolvedValue('fallback');
       
       const result = await circuitBreaker.executeWithFallback(operation, fallback);
       
-      assert.strictEqual(result, 'success');
-      assert.ok(operation.toHaveBeenCalled());
-      assert.ok(!fallback.toHaveBeenCalled());
+      expect(result).toBe('success');
+      expect(operation).toHaveBeenCalled();
+      expect(fallback).not.toHaveBeenCalled();
     });
     
     it('should use fallback when circuit is open', async () => {
@@ -205,14 +179,14 @@ describe('StorageCircuitBreaker', () => {
         await circuitBreaker.recordFailure();
       }
       
-      const operation = createMock().mockResolvedValue('success');
-      const fallback = createMock().mockResolvedValue('fallback');
+      const operation = vi.fn().mockResolvedValue('success');
+      const fallback = vi.fn().mockResolvedValue('fallback');
       
       const result = await circuitBreaker.executeWithFallback(operation, fallback);
       
-      assert.strictEqual(result, 'fallback');
-      assert.ok(!operation.toHaveBeenCalled());
-      assert.ok(fallback.toHaveBeenCalled());
+      expect(result).toBe('fallback');
+      expect(operation).not.toHaveBeenCalled();
+      expect(fallback).toHaveBeenCalled();
     });
     
     it('should throw error when circuit is open and no fallback provided', async () => {
@@ -221,35 +195,34 @@ describe('StorageCircuitBreaker', () => {
         await circuitBreaker.recordFailure();
       }
       
-      const operation = createMock().mockResolvedValue('success');
+      const operation = vi.fn().mockResolvedValue('success');
       
-      await assert.rejects(circuitBreaker.executeWithFallback(operation));
-      assert.ok(!operation.toHaveBeenCalled());
+      await expect(circuitBreaker.executeWithFallback(operation)).rejects.toThrow();
+      expect(operation).not.toHaveBeenCalled();
     });
     
     it('should use fallback when operation fails', async () => {
-      const operation = createMock().mockRejectedValue(new Error('Operation failed'));
-      const fallback = createMock().mockResolvedValue('fallback success');
+      const operation = vi.fn().mockRejectedValue(new Error('Operation failed'));
+      const fallback = vi.fn().mockResolvedValue('fallback success');
       
       const result = await circuitBreaker.executeWithFallback(operation, fallback);
       
-      assert.strictEqual(result, 'fallback success');
-      assert.ok(operation.toHaveBeenCalled());
-      assert.ok(fallback.toHaveBeenCalled());
+      expect(result).toBe('fallback success');
+      expect(operation).toHaveBeenCalled();
+      expect(fallback).toHaveBeenCalled();
     });
     
     it('should throw original error if both operation and fallback fail', async () => {
       const originalError = new Error('Original operation failed');
-      const operation = createMock().mockRejectedValue(originalError);
-      const fallback = createMock().mockRejectedValue(new Error('Fallback failed'));
+      const operation = vi.fn().mockRejectedValue(originalError);
+      const fallback = vi.fn().mockRejectedValue(new Error('Fallback failed'));
       
-      await assert.rejects(
-        circuitBreaker.executeWithFallback(operation, fallback),
-        /Original operation failed/
-      );
+      await expect(
+        circuitBreaker.executeWithFallback(operation, fallback)
+      ).rejects.toThrow('Original operation failed');
       
-      assert.ok(operation.toHaveBeenCalled());
-      assert.ok(fallback.toHaveBeenCalled());
+      expect(operation).toHaveBeenCalled();
+      expect(fallback).toHaveBeenCalled();
     });
   });
   
@@ -261,11 +234,11 @@ describe('StorageCircuitBreaker', () => {
       
       const status = circuitBreaker.getStatus();
       
-      assert.strictEqual(status.state, CircuitBreakerState.CLOSED);
-      assert.strictEqual(status.failureCount, 2);
-      assert.strictEqual(status.isRequestAllowed, true);
-      assert.ok(status.lastFailureTime !== undefined);
-      assert.strictEqual(typeof status.lastFailureTime, 'number');
+      expect(status.state).toBe(CircuitBreakerState.CLOSED);
+      expect(status.failureCount).toBe(2);
+      expect(status.isRequestAllowed).toBe(true);
+      expect(status.lastFailureTime).toBeDefined();
+      expect(typeof status.lastFailureTime).toBe('number');
     });
     
     it('should track last failure time', async () => {
@@ -274,28 +247,28 @@ describe('StorageCircuitBreaker', () => {
       const afterFailure = Date.now();
       
       const status = circuitBreaker.getStatus();
-      assert.ok(status.lastFailureTime >= beforeFailure);
-      assert.ok(status.lastFailureTime <= afterFailure);
+      expect(status.lastFailureTime).toBeGreaterThanOrEqual(beforeFailure);
+      expect(status.lastFailureTime).toBeLessThanOrEqual(afterFailure);
     });
     
     it('should provide appropriate state descriptions for all states', async () => {
       // Test CLOSED state description
       let description = circuitBreaker.getStateDescription();
-      assert.ok(description.includes('Closed'));
+      expect(description).toContain('Closed');
       
       // Test OPEN state description
       for (let i = 0; i < 3; i++) {
         await circuitBreaker.recordFailure();
       }
       description = circuitBreaker.getStateDescription();
-      assert.ok(description.includes('Open'));
-      assert.ok(description.includes('Failing fast'));
+      expect(description).toContain('Open');
+      expect(description).toContain('Failing fast');
       
       // Test manual override description
       circuitBreaker.close();
       circuitBreaker.open();
       description = circuitBreaker.getStateDescription();
-      assert.ok(description.includes('Manually opened'));
+      expect(description).toContain('Manually opened');
     });
   });
   
@@ -311,8 +284,8 @@ describe('StorageCircuitBreaker', () => {
       await Promise.all(promises);
       
       // Should be open after threshold (3)
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.OPEN);
-      assert.ok(circuitBreaker.getFailureCount() >= 3);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.OPEN);
+      expect(circuitBreaker.getFailureCount()).toBeGreaterThanOrEqual(3);
     });
     
     it('should handle mixed success and failure patterns', async () => {
@@ -324,19 +297,19 @@ describe('StorageCircuitBreaker', () => {
       await circuitBreaker.recordFailure();
       
       // Should be open due to consecutive failures
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.OPEN);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.OPEN);
     });
     
     it('should reset failure count on successful operations', async () => {
       // Build up failures just below threshold
       await circuitBreaker.recordFailure();
       await circuitBreaker.recordFailure();
-      assert.strictEqual(circuitBreaker.getFailureCount(), 2);
+      expect(circuitBreaker.getFailureCount()).toBe(2);
       
       // Success should reset counter
       await circuitBreaker.recordSuccess();
-      assert.strictEqual(circuitBreaker.getFailureCount(), 0);
-      assert.strictEqual(circuitBreaker.getState(), CircuitBreakerState.CLOSED);
+      expect(circuitBreaker.getFailureCount()).toBe(0);
+      expect(circuitBreaker.getState()).toBe(CircuitBreakerState.CLOSED);
     });
   });
 });

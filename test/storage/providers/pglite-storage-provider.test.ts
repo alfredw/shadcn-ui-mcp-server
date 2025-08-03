@@ -1,5 +1,10 @@
-import { describe, it, beforeEach, afterEach, before, after } from 'node:test';
-import assert from 'node:assert';
+/**
+ * PGLite Storage Provider Tests - Vitest Edition
+ * Converted from Node.js native test to Vitest
+ */
+
+import { describe, it, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { expect } from 'vitest';
 import { PGLiteStorageProvider } from '../../../build/storage/providers/pglite-storage-provider.js';
 import { PGLiteManager } from '../../../build/storage/database/manager.js';
 import { initializeDatabase, closeDatabase } from '../../../build/storage/database/connection.js';
@@ -9,11 +14,10 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('PGLiteStorageProvider', () => {
-  let provider;
-  let dbManager;
+  let provider: PGLiteStorageProvider;
   const testDbPath = path.join(__dirname, '../../temp-test-db');
 
-  before(async () => {
+  beforeAll(async () => {
     // Use ONLY the global manager - eliminate dual manager pattern
     await initializeDatabase({
       path: testDbPath,
@@ -40,7 +44,7 @@ describe('PGLiteStorageProvider', () => {
     }
   });
 
-  after(async () => {
+  afterAll(async () => {
     await closeDatabase();
     // Ensure all connections are properly closed
     await PGLiteManager.closeAllConnections();
@@ -60,7 +64,7 @@ describe('PGLiteStorageProvider', () => {
         };
         await newProvider.setComponent(testComponent);
         const retrieved = await newProvider.getComponent('react', 'init-test');
-        assert.strictEqual(retrieved.sourceCode, 'test code');
+        expect(retrieved.sourceCode).toBe('test code');
       } finally {
         await newProvider.dispose();
       }
@@ -79,7 +83,7 @@ describe('PGLiteStorageProvider', () => {
         };
         await newProvider.setComponent(testComponent);
         const retrieved = await newProvider.getComponent('react', 'global-test');
-        assert.strictEqual(retrieved.sourceCode, 'global test code');
+        expect(retrieved.sourceCode).toBe('global test code');
       } finally {
         await newProvider.dispose();
       }
@@ -90,39 +94,39 @@ describe('PGLiteStorageProvider', () => {
     it('should parse component keys correctly', () => {
       const parsed = provider.parseKey('component:react:button');
       
-      assert.strictEqual(parsed.type, 'component');
-      assert.strictEqual(parsed.framework, 'react');
-      assert.strictEqual(parsed.name, 'button');
+      expect(parsed.type).toBe('component');
+      expect(parsed.framework).toBe('react');
+      expect(parsed.name).toBe('button');
     });
 
     it('should parse block keys correctly', () => {
       const parsed = provider.parseKey('block:react:dashboard-01');
       
-      assert.strictEqual(parsed.type, 'block');
-      assert.strictEqual(parsed.framework, 'react');
-      assert.strictEqual(parsed.name, 'dashboard-01');
+      expect(parsed.type).toBe('block');
+      expect(parsed.framework).toBe('react');
+      expect(parsed.name).toBe('dashboard-01');
     });
 
     it('should parse metadata keys correctly', () => {
       const parsed = provider.parseKey('metadata:github_rate_limit');
       
-      assert.strictEqual(parsed.type, 'metadata');
-      assert.strictEqual(parsed.name, 'github_rate_limit');
+      expect(parsed.type).toBe('metadata');
+      expect(parsed.name).toBe('github_rate_limit');
     });
 
     it('should build keys correctly', () => {
       const key = provider.buildKey('component', 'react', 'button');
-      assert.strictEqual(key, 'component:react:button');
+      expect(key).toBe('component:react:button');
     });
 
     it('should identify component keys', () => {
-      assert.strictEqual(provider.isComponentKey('component:react:button'), true);
-      assert.strictEqual(provider.isComponentKey('block:react:dashboard'), false);
+      expect(provider.isComponentKey('component:react:button')).toBe(true);
+      expect(provider.isComponentKey('block:react:dashboard')).toBe(false);
     });
 
     it('should identify block keys', () => {
-      assert.strictEqual(provider.isBlockKey('block:react:dashboard'), true);
-      assert.strictEqual(provider.isBlockKey('component:react:button'), false);
+      expect(provider.isBlockKey('block:react:dashboard')).toBe(true);
+      expect(provider.isBlockKey('component:react:button')).toBe(false);
     });
   });
 
@@ -145,10 +149,10 @@ describe('PGLiteStorageProvider', () => {
       
       const retrieved = await provider.getComponent('react', 'button');
       
-      assert.strictEqual(retrieved.framework, sampleComponent.framework);
-      assert.strictEqual(retrieved.name, sampleComponent.name);
-      assert.strictEqual(retrieved.sourceCode, sampleComponent.sourceCode);
-      assert.deepStrictEqual(retrieved.dependencies, sampleComponent.dependencies);
+      expect(retrieved.framework).toBe(sampleComponent.framework);
+      expect(retrieved.name).toBe(sampleComponent.name);
+      expect(retrieved.sourceCode).toBe(sampleComponent.sourceCode);
+      expect(retrieved.dependencies).toEqual(sampleComponent.dependencies);
     });
 
     it('should update access tracking on component retrieval', async () => {
@@ -161,12 +165,12 @@ describe('PGLiteStorageProvider', () => {
       await provider.getComponent('react', 'button');
       
       const metadata = await provider.getComponentMetadata('react', 'button');
-      assert.ok(metadata.accessCount >= 2);
+      expect(metadata.accessCount).toBeGreaterThanOrEqual(2);
     });
 
     it('should return undefined for non-existent components', async () => {
       const result = await provider.getComponent('react', 'nonexistent');
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
     });
 
     it('should list components by framework', async () => {
@@ -178,9 +182,9 @@ describe('PGLiteStorageProvider', () => {
 
       const components = await provider.listComponents('react');
       
-      assert.strictEqual(components.length, 2);
-      assert.ok(components.some(c => c.name === 'button'));
-      assert.ok(components.some(c => c.name === 'card'));
+      expect(components).toHaveLength(2);
+      expect(components.some(c => c.name === 'button')).toBe(true);
+      expect(components.some(c => c.name === 'card')).toBe(true);
     });
 
     it('should handle component updates correctly', async () => {
@@ -195,8 +199,8 @@ describe('PGLiteStorageProvider', () => {
       await provider.setComponent(updatedComponent);
       
       const retrieved = await provider.getComponent('react', 'button');
-      assert.strictEqual(retrieved.sourceCode, 'updated code');
-      assert.strictEqual(retrieved.fileSize, 200);
+      expect(retrieved.sourceCode).toBe('updated code');
+      expect(retrieved.fileSize).toBe(200);
     });
   });
 
@@ -223,10 +227,10 @@ describe('PGLiteStorageProvider', () => {
       
       const retrieved = await provider.getBlock('react', 'dashboard-01');
       
-      assert.strictEqual(retrieved.framework, sampleBlock.framework);
-      assert.strictEqual(retrieved.name, sampleBlock.name);
-      assert.strictEqual(retrieved.category, sampleBlock.category);
-      assert.deepStrictEqual(retrieved.files, sampleBlock.files);
+      expect(retrieved.framework).toBe(sampleBlock.framework);
+      expect(retrieved.name).toBe(sampleBlock.name);
+      expect(retrieved.category).toBe(sampleBlock.category);
+      expect(retrieved.files).toEqual(sampleBlock.files);
     });
 
     it('should update access tracking on block retrieval', async () => {
@@ -236,12 +240,12 @@ describe('PGLiteStorageProvider', () => {
       await provider.getBlock('react', 'dashboard-01');
       
       const metadata = await provider.getBlockMetadata('react', 'dashboard-01');
-      assert.ok(metadata.accessCount >= 2);
+      expect(metadata.accessCount).toBeGreaterThanOrEqual(2);
     });
 
     it('should return undefined for non-existent blocks', async () => {
       const result = await provider.getBlock('react', 'nonexistent');
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
     });
 
     it('should list blocks by framework', async () => {
@@ -254,9 +258,9 @@ describe('PGLiteStorageProvider', () => {
 
       const blocks = await provider.listBlocks('react');
       
-      assert.strictEqual(blocks.length, 2);
-      assert.ok(blocks.some(b => b.name === 'dashboard-01'));
-      assert.ok(blocks.some(b => b.name === 'dashboard-02'));
+      expect(blocks).toHaveLength(2);
+      expect(blocks.some(b => b.name === 'dashboard-01')).toBe(true);
+      expect(blocks.some(b => b.name === 'dashboard-02')).toBe(true);
     });
 
     it('should filter blocks by category', async () => {
@@ -270,11 +274,11 @@ describe('PGLiteStorageProvider', () => {
       const dashboardBlocks = await provider.listBlocks('react', 'dashboard');
       const analyticsBlocks = await provider.listBlocks('react', 'analytics');
       
-      assert.strictEqual(dashboardBlocks.length, 1);
-      assert.strictEqual(dashboardBlocks[0].name, 'dashboard-01');
+      expect(dashboardBlocks).toHaveLength(1);
+      expect(dashboardBlocks[0].name).toBe('dashboard-01');
       
-      assert.strictEqual(analyticsBlocks.length, 1);
-      assert.strictEqual(analyticsBlocks[0].name, 'analytics-01');
+      expect(analyticsBlocks).toHaveLength(1);
+      expect(analyticsBlocks[0].name).toBe('analytics-01');
     });
   });
 
@@ -290,8 +294,8 @@ describe('PGLiteStorageProvider', () => {
       await provider.set(key, component);
       const retrieved = await provider.get(key);
       
-      assert.strictEqual(retrieved.framework, component.framework);
-      assert.strictEqual(retrieved.sourceCode, component.sourceCode);
+      expect(retrieved.framework).toBe(component.framework);
+      expect(retrieved.sourceCode).toBe(component.sourceCode);
     });
 
     it('should check key existence correctly', async () => {
@@ -302,10 +306,10 @@ describe('PGLiteStorageProvider', () => {
         sourceCode: 'test'
       };
       
-      assert.strictEqual(await provider.has(key), false);
+      expect(await provider.has(key)).toBe(false);
       
       await provider.set(key, component);
-      assert.strictEqual(await provider.has(key), true);
+      expect(await provider.has(key)).toBe(true);
     });
 
     it('should delete keys correctly', async () => {
@@ -317,27 +321,27 @@ describe('PGLiteStorageProvider', () => {
       };
       
       await provider.set(key, component);
-      assert.strictEqual(await provider.has(key), true);
+      expect(await provider.has(key)).toBe(true);
       
       const deleted = await provider.delete(key);
-      assert.strictEqual(deleted, true);
-      assert.strictEqual(await provider.has(key), false);
+      expect(deleted).toBe(true);
+      expect(await provider.has(key)).toBe(false);
     });
 
     it('should return false when deleting non-existent keys', async () => {
       const deleted = await provider.delete('component:react:nonexistent');
-      assert.strictEqual(deleted, false);
+      expect(deleted).toBe(false);
     });
 
     it('should clear all data', async () => {
       await provider.set('component:react:test1', { framework: 'react', name: 'test1', sourceCode: 'code1' });
       await provider.set('block:react:test2', { framework: 'react', name: 'test2', files: {} });
       
-      assert.ok((await provider.size()) >= 2);
+      expect(await provider.size()).toBeGreaterThanOrEqual(2);
       
       await provider.clear();
       
-      assert.strictEqual(await provider.size(), 0);
+      expect(await provider.size()).toBe(0);
     });
   });
 
@@ -354,11 +358,11 @@ describe('PGLiteStorageProvider', () => {
       const keys = ['component:react:button1', 'component:react:button2', 'block:react:dash1', 'component:react:nonexistent'];
       const result = await provider.mget(keys);
       
-      assert.strictEqual(result.size, 3);
-      assert.strictEqual(result.get('component:react:button1').sourceCode, 'code1');
-      assert.strictEqual(result.get('component:react:button2').sourceCode, 'code2');
-      assert.deepStrictEqual(result.get('block:react:dash1').files, {});
-      assert.strictEqual(result.has('component:react:nonexistent'), false);
+      expect(result.size).toBe(3);
+      expect(result.get('component:react:button1').sourceCode).toBe('code1');
+      expect(result.get('component:react:button2').sourceCode).toBe('code2');
+      expect(result.get('block:react:dash1').files).toEqual({});
+      expect(result.has('component:react:nonexistent')).toBe(false);
     });
 
     it('should set multiple values at once', async () => {
@@ -372,8 +376,8 @@ describe('PGLiteStorageProvider', () => {
       const comp1 = await provider.get('component:react:batch1');
       const comp2 = await provider.get('component:react:batch2');
       
-      assert.strictEqual(comp1.sourceCode, 'code1');
-      assert.strictEqual(comp2.sourceCode, 'code2');
+      expect(comp1.sourceCode).toBe('code1');
+      expect(comp2.sourceCode).toBe('code2');
     });
   });
 
@@ -396,12 +400,12 @@ describe('PGLiteStorageProvider', () => {
       // Verify all items were stored
       for (const [key, expectedValue] of data) {
         const actualValue = await provider.get(key);
-        assert.ok(actualValue, `Value for key ${key} should exist`);
+        expect(actualValue).toBeTruthy();
         
         if (key.includes('component')) {
-          assert.strictEqual(actualValue.sourceCode, expectedValue.sourceCode);
+          expect(actualValue.sourceCode).toBe(expectedValue.sourceCode);
         } else if (key.includes('block')) {
-          assert.deepStrictEqual(actualValue.files, expectedValue.files);
+          expect(actualValue.files).toEqual(expectedValue.files);
         }
       }
     });
@@ -427,8 +431,8 @@ describe('PGLiteStorageProvider', () => {
       // Verify all components were stored correctly
       for (let i = 0; i < 5; i++) {
         const component = await provider.getComponent('react', `concurrent${i}`);
-        assert.ok(component, `Component concurrent${i} should exist`);
-        assert.strictEqual(component.sourceCode, `code${i}`);
+        expect(component).toBeTruthy();
+        expect(component.sourceCode).toBe(`code${i}`);
       }
     });
     
@@ -439,17 +443,17 @@ describe('PGLiteStorageProvider', () => {
       
       // Verify data exists
       let component = await provider.getComponent('react', 'isolation-test');
-      assert.ok(component);
+      expect(component).toBeTruthy();
       
       // Clear should be atomic
       await provider.clear();
       
       // Verify all data is gone
       component = await provider.getComponent('react', 'isolation-test');
-      assert.strictEqual(component, undefined);
+      expect(component).toBeUndefined();
       
       const size = await provider.size();
-      assert.strictEqual(size, 0);
+      expect(size).toBe(0);
     });
     
     it('should handle mixed component and block mset operations atomically', async () => {
@@ -477,13 +481,13 @@ describe('PGLiteStorageProvider', () => {
       // Verify component storage
       const comp1 = await provider.getComponent('react', 'mixed1');
       const comp3 = await provider.getComponent('react', 'mixed3');
-      assert.strictEqual(comp1.sourceCode, 'component code');
-      assert.strictEqual(comp3.sourceCode, 'another component');
+      expect(comp1.sourceCode).toBe('component code');
+      expect(comp3.sourceCode).toBe('another component');
       
       // Verify block storage
       const block2 = await provider.getBlock('react', 'mixed2');
-      assert.deepStrictEqual(block2.files, { 'page.tsx': 'block code' });
-      assert.strictEqual(block2.totalSize, 100);
+      expect(block2.files).toEqual({ 'page.tsx': 'block code' });
+      expect(block2.totalSize).toBe(100);
     });
     
     it('should verify transaction boundaries are respected', async () => {
@@ -497,13 +501,13 @@ describe('PGLiteStorageProvider', () => {
       await provider.mset(data);
       
       const finalSize = await provider.size();
-      assert.strictEqual(finalSize, initialSize + 2);
+      expect(finalSize).toBe(initialSize + 2);
       
       // Verify both components exist
       const comp1 = await provider.getComponent('react', 'boundary1');
       const comp2 = await provider.getComponent('react', 'boundary2');
-      assert.ok(comp1);
-      assert.ok(comp2);
+      expect(comp1).toBeTruthy();
+      expect(comp2).toBeTruthy();
     });
   });
 
@@ -519,13 +523,13 @@ describe('PGLiteStorageProvider', () => {
         const component = { framework: 'react', name: 'expire-test', sourceCode: 'code' };
         await shortTTLProvider.setComponent(component);
         
-        assert.ok(await shortTTLProvider.getComponent('react', 'expire-test'));
+        expect(await shortTTLProvider.getComponent('react', 'expire-test')).toBeTruthy();
         
         // Wait for expiration
         await new Promise(resolve => setTimeout(resolve, 1100));
         
         const expired = await shortTTLProvider.getComponent('react', 'expire-test');
-        assert.strictEqual(expired, undefined);
+        expect(expired).toBeUndefined();
       } finally {
         await shortTTLProvider.dispose();
       }
@@ -548,7 +552,7 @@ describe('PGLiteStorageProvider', () => {
         await new Promise(resolve => setTimeout(resolve, 1100));
         
         const cleaned = await shortTTLProvider.cleanupExpired();
-        assert.ok(cleaned >= 0); // Should clean up expired entries
+        expect(cleaned).toBeGreaterThanOrEqual(0); // Should clean up expired entries
       } finally {
         await shortTTLProvider.dispose();
       }
@@ -559,8 +563,8 @@ describe('PGLiteStorageProvider', () => {
       await provider.setComponent(component);
       
       const remaining = await provider.getTTLRemaining('react', 'ttl-test', 'component');
-      assert.ok(remaining > 0);
-      assert.ok(remaining <= provider.config.defaultTTL);
+      expect(remaining).toBeGreaterThan(0);
+      expect(remaining).toBeLessThanOrEqual(provider.config.defaultTTL);
     });
 
     it('should refresh TTL for items', async () => {
@@ -576,14 +580,14 @@ describe('PGLiteStorageProvider', () => {
       const beforeRefreshTTL = await provider.getTTLRemaining('react', 'refresh-test', 'component');
       
       const refreshed = await provider.refreshTTL('react', 'refresh-test', 'component');
-      assert.strictEqual(refreshed, true);
+      expect(refreshed).toBe(true);
       
       const newTTL = await provider.getTTLRemaining('react', 'refresh-test', 'component');
       
       // After refresh, TTL should be higher than before refresh
-      assert.ok(newTTL > beforeRefreshTTL, `New TTL (${newTTL}) should be > before refresh TTL (${beforeRefreshTTL})`);
+      expect(newTTL).toBeGreaterThan(beforeRefreshTTL);
       // And should be close to the original TTL (within 1 second due to rounding)
-      assert.ok(Math.abs(newTTL - initialTTL) <= 1, `New TTL (${newTTL}) should be close to initial TTL (${initialTTL})`);
+      expect(Math.abs(newTTL - initialTTL)).toBeLessThanOrEqual(1);
     });
   });
 
@@ -607,10 +611,10 @@ describe('PGLiteStorageProvider', () => {
         }
         
         const evicted = await smallProvider.enforceMaxSize();
-        assert.ok(evicted >= 0); // Should evict some items
+        expect(evicted).toBeGreaterThanOrEqual(0); // Should evict some items
         
         const finalSize = await smallProvider.getCurrentCacheSize();
-        assert.ok(finalSize <= smallProvider.config.maxSize);
+        expect(finalSize).toBeLessThanOrEqual(smallProvider.config.maxSize);
       } finally {
         await smallProvider.dispose();
       }
@@ -633,11 +637,11 @@ describe('PGLiteStorageProvider', () => {
       await provider.getComponent('react', 'lru-4');
       
       const evicted = await provider.evictLRU(2);
-      assert.strictEqual(evicted, 2);
+      expect(evicted).toBe(2);
       
       // The accessed items should still exist
-      assert.ok(await provider.getComponent('react', 'lru-3'));
-      assert.ok(await provider.getComponent('react', 'lru-4'));
+      expect(await provider.getComponent('react', 'lru-3')).toBeTruthy();
+      expect(await provider.getComponent('react', 'lru-4')).toBeTruthy();
     });
 
     it('should perform comprehensive maintenance', async () => {
@@ -654,15 +658,15 @@ describe('PGLiteStorageProvider', () => {
       
       const maintenance = await provider.performMaintenance();
       
-      assert.ok(typeof maintenance.expiredCleaned === 'number');
-      assert.ok(typeof maintenance.itemsEvicted === 'number');
-      assert.ok(typeof maintenance.finalSize === 'number');
-      assert.ok(typeof maintenance.finalCount === 'number');
+      expect(typeof maintenance.expiredCleaned).toBe('number');
+      expect(typeof maintenance.itemsEvicted).toBe('number');
+      expect(typeof maintenance.finalSize).toBe('number');
+      expect(typeof maintenance.finalCount).toBe('number');
     });
 
     it('should detect when maintenance is needed', async () => {
       const needsMaintenance = await provider.needsMaintenance();
-      assert.ok(typeof needsMaintenance === 'boolean');
+      expect(typeof needsMaintenance).toBe('boolean');
     });
   });
 
@@ -700,15 +704,15 @@ describe('PGLiteStorageProvider', () => {
         
         // Total: 200 + 150 + 250 = 600 bytes (exceeds 500 byte limit)
         const initialSize = await testProvider.getCurrentCacheSize();
-        assert.strictEqual(initialSize, 600);
+        expect(initialSize).toBe(600);
         
         // Enforce size limits
         const evicted = await testProvider.enforceMaxSize();
-        assert.ok(evicted > 0); // Should evict at least one item
+        expect(evicted).toBeGreaterThan(0); // Should evict at least one item
         
         // Final size should be within limits
         const finalSize = await testProvider.getCurrentCacheSize();
-        assert.ok(finalSize <= 500);
+        expect(finalSize).toBeLessThanOrEqual(500);
         
       } finally {
         await testProvider.dispose();
@@ -748,17 +752,17 @@ describe('PGLiteStorageProvider', () => {
       
       // Evict 2 items (should evict the oldest ones)
       const evicted = await provider.evictLRU(2);
-      assert.strictEqual(evicted, 2);
+      expect(evicted).toBe(2);
       
       // Verify the newer item still exists
       const newerComp = await provider.getComponent('react', 'newer-comp');
-      assert.ok(newerComp);
+      expect(newerComp).toBeTruthy();
       
       // Verify the older items were evicted
       const olderComp = await provider.getComponent('react', 'oldest-comp');
       const olderBlock = await provider.getBlock('react', 'oldest-block');
-      assert.strictEqual(olderComp, undefined);
-      assert.strictEqual(olderBlock, undefined);
+      expect(olderComp).toBeUndefined();
+      expect(olderBlock).toBeUndefined();
     });
     
     it('should maintain accurate cache size during eviction operations', async () => {
@@ -794,19 +798,19 @@ describe('PGLiteStorageProvider', () => {
         
         // Verify initial size
         let cacheSize = await testProvider.getCurrentCacheSize();
-        assert.strictEqual(cacheSize, 600);
+        expect(cacheSize).toBe(600);
         
         // Enforce size limits  
         const evicted = await testProvider.enforceMaxSize();
-        assert.ok(evicted > 0);
+        expect(evicted).toBeGreaterThan(0);
         
         // Verify final size is within limits and calculation is accurate
         cacheSize = await testProvider.getCurrentCacheSize();
-        assert.ok(cacheSize <= 400);
+        expect(cacheSize).toBeLessThanOrEqual(400);
         
         // Size should be exactly what we expect based on remaining items
         const remainingItems = await testProvider.size();
-        assert.ok(remainingItems < 3); // Some items should have been evicted
+        expect(remainingItems).toBeLessThan(3); // Some items should have been evicted
         
       } finally {
         await testProvider.dispose();
@@ -832,18 +836,18 @@ describe('PGLiteStorageProvider', () => {
       });
       
       const initialSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(initialSize, 300);
+      expect(initialSize).toBe(300);
       
       // Perform maintenance
       const maintenance = await provider.performMaintenance();
       
       // Verify maintenance results are consistent with accurate size calculation
-      assert.strictEqual(maintenance.finalSize, await provider.getCurrentCacheSize());
-      assert.strictEqual(maintenance.finalCount, await provider.size());
+      expect(maintenance.finalSize).toBe(await provider.getCurrentCacheSize());
+      expect(maintenance.finalCount).toBe(await provider.size());
       
       // Final size should be reasonable given our test data
-      assert.ok(maintenance.finalSize >= 0);
-      assert.ok(maintenance.finalSize <= initialSize);
+      expect(maintenance.finalSize).toBeGreaterThanOrEqual(0);
+      expect(maintenance.finalSize).toBeLessThanOrEqual(initialSize);
     });
     
     it('should make correct eviction decisions based on actual cache size', async () => {
@@ -872,7 +876,7 @@ describe('PGLiteStorageProvider', () => {
         
         // Total: 250 bytes (under limit)
         let needsEviction = await testProvider.getCurrentCacheSize() > testProvider.config.maxSize;
-        assert.strictEqual(needsEviction, false);
+        expect(needsEviction).toBe(false);
         
         // Add another item to push over the limit
         await testProvider.setComponent({
@@ -884,15 +888,15 @@ describe('PGLiteStorageProvider', () => {
         
         // Total: 400 bytes (over 350 limit)
         needsEviction = await testProvider.getCurrentCacheSize() > testProvider.config.maxSize;
-        assert.strictEqual(needsEviction, true);
+        expect(needsEviction).toBe(true);
         
         // Enforce size should now evict
         const evicted = await testProvider.enforceMaxSize();
-        assert.ok(evicted > 0);
+        expect(evicted).toBeGreaterThan(0);
         
         // Should now be within limits
         const finalSize = await testProvider.getCurrentCacheSize();
-        assert.ok(finalSize <= testProvider.config.maxSize);
+        expect(finalSize).toBeLessThanOrEqual(testProvider.config.maxSize);
         
       } finally {
         await testProvider.dispose();
@@ -907,12 +911,12 @@ describe('PGLiteStorageProvider', () => {
       
       const metadata = await provider.getMetadata('component:react:meta-test');
       
-      assert.ok(metadata);
-      assert.strictEqual(metadata.key, 'component:react:meta-test');
-      assert.ok(metadata.size >= 0);
-      assert.ok(metadata.createdAt instanceof Date);
-      assert.ok(metadata.accessedAt instanceof Date);
-      assert.ok(typeof metadata.accessCount === 'number');
+      expect(metadata).toBeTruthy();
+      expect(metadata!.key).toBe('component:react:meta-test');
+      expect(metadata!.size).toBeGreaterThanOrEqual(0);
+      expect(metadata!.createdAt).toBeInstanceOf(Date);
+      expect(metadata!.accessedAt).toBeInstanceOf(Date);
+      expect(typeof metadata!.accessCount).toBe('number');
     });
 
     it('should track metadata for blocks', async () => {
@@ -921,14 +925,14 @@ describe('PGLiteStorageProvider', () => {
       
       const metadata = await provider.getMetadata('block:react:meta-block');
       
-      assert.ok(metadata);
-      assert.strictEqual(metadata.key, 'block:react:meta-block');
-      assert.strictEqual(metadata.size, 500);
+      expect(metadata).toBeTruthy();
+      expect(metadata!.key).toBe('block:react:meta-block');
+      expect(metadata!.size).toBe(500);
     });
 
     it('should return null for non-existent metadata', async () => {
       const metadata = await provider.getMetadata('component:react:nonexistent');
-      assert.strictEqual(metadata, null);
+      expect(metadata).toBeNull();
     });
   });
 
@@ -940,10 +944,10 @@ describe('PGLiteStorageProvider', () => {
       
       const keys = await provider.keys();
       
-      assert.ok(keys.length >= 3);
-      assert.ok(keys.includes('component:react:key1'));
-      assert.ok(keys.includes('component:react:key2'));
-      assert.ok(keys.includes('block:react:block1'));
+      expect(keys.length).toBeGreaterThanOrEqual(3);
+      expect(keys).toContain('component:react:key1');
+      expect(keys).toContain('component:react:key2');
+      expect(keys).toContain('block:react:block1');
     });
 
     it('should filter keys by pattern', async () => {
@@ -954,26 +958,26 @@ describe('PGLiteStorageProvider', () => {
       const reactKeys = await provider.keys('component:react:*');
       const componentKeys = await provider.keys('component:*');
       
-      assert.ok(reactKeys.includes('component:react:filter1'));
-      assert.ok(!reactKeys.includes('component:svelte:filter2'));
-      assert.ok(!reactKeys.includes('block:react:filter3'));
+      expect(reactKeys).toContain('component:react:filter1');
+      expect(reactKeys).not.toContain('component:svelte:filter2');
+      expect(reactKeys).not.toContain('block:react:filter3');
       
-      assert.ok(componentKeys.includes('component:react:filter1'));
-      assert.ok(componentKeys.includes('component:svelte:filter2'));
-      assert.ok(!componentKeys.includes('block:react:filter3'));
+      expect(componentKeys).toContain('component:react:filter1');
+      expect(componentKeys).toContain('component:svelte:filter2');
+      expect(componentKeys).not.toContain('block:react:filter3');
     });
 
     it('should return accurate size', async () => {
       const initialSize = await provider.size();
       
       await provider.setComponent({ framework: 'react', name: 'size1', sourceCode: 'code1' });
-      assert.strictEqual(await provider.size(), initialSize + 1);
+      expect(await provider.size()).toBe(initialSize + 1);
       
       await provider.setBlock({ framework: 'react', name: 'size2', files: {} });
-      assert.strictEqual(await provider.size(), initialSize + 2);
+      expect(await provider.size()).toBe(initialSize + 2);
       
       await provider.delete('component:react:size1');
-      assert.strictEqual(await provider.size(), initialSize + 1);
+      expect(await provider.size()).toBe(initialSize + 1);
     });
   });
 
@@ -986,17 +990,17 @@ describe('PGLiteStorageProvider', () => {
       
       const stats = await provider.getCacheStats();
       
-      assert.ok(typeof stats.totalComponents === 'number');
-      assert.ok(typeof stats.totalBlocks === 'number');
-      assert.ok(typeof stats.expiredComponents === 'number');
-      assert.ok(typeof stats.expiredBlocks === 'number');
-      assert.ok(typeof stats.totalSize === 'number');
-      assert.ok(typeof stats.avgComponentAge === 'number');
-      assert.ok(typeof stats.avgBlockAge === 'number');
+      expect(typeof stats.totalComponents).toBe('number');
+      expect(typeof stats.totalBlocks).toBe('number');
+      expect(typeof stats.expiredComponents).toBe('number');
+      expect(typeof stats.expiredBlocks).toBe('number');
+      expect(typeof stats.totalSize).toBe('number');
+      expect(typeof stats.avgComponentAge).toBe('number');
+      expect(typeof stats.avgBlockAge).toBe('number');
       
-      assert.ok(stats.totalComponents >= 2);
-      assert.ok(stats.totalBlocks >= 1);
-      assert.ok(stats.totalSize >= 450); // 100 + 150 + 200
+      expect(stats.totalComponents).toBeGreaterThanOrEqual(2);
+      expect(stats.totalBlocks).toBeGreaterThanOrEqual(1);
+      expect(stats.totalSize).toBeGreaterThanOrEqual(450); // 100 + 150 + 200
     });
 
     it('should get current cache size', async () => {
@@ -1004,7 +1008,7 @@ describe('PGLiteStorageProvider', () => {
       await provider.setBlock({ framework: 'react', name: 'size-block', files: {}, totalSize: 456 });
       
       const currentSize = await provider.getCurrentCacheSize();
-      assert.ok(currentSize >= 579); // 123 + 456
+      expect(currentSize).toBeGreaterThanOrEqual(579); // 123 + 456
     });
   });
 
@@ -1028,7 +1032,7 @@ describe('PGLiteStorageProvider', () => {
       });
       
       const cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 300); // 100 + 200
+      expect(cacheSize).toBe(300); // 100 + 200
     });
     
     it('should accurately calculate cache size with only blocks', async () => {
@@ -1050,7 +1054,7 @@ describe('PGLiteStorageProvider', () => {
       });
       
       const cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 800); // 500 + 300
+      expect(cacheSize).toBe(800); // 500 + 300
     });
     
     it('should accurately calculate cache size with mixed components and blocks', async () => {
@@ -1086,14 +1090,14 @@ describe('PGLiteStorageProvider', () => {
       });
       
       const cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 1400); // 150 + 250 + 400 + 600
+      expect(cacheSize).toBe(1400); // 150 + 250 + 400 + 600
     });
     
     it('should return 0 for empty cache', async () => {
       await provider.clear();
       
       const cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 0);
+      expect(cacheSize).toBe(0);
     });
     
     it('should handle null file sizes correctly', async () => {
@@ -1116,7 +1120,7 @@ describe('PGLiteStorageProvider', () => {
       });
       
       const cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 0); // Should handle nulls gracefully
+      expect(cacheSize).toBe(0); // Should handle nulls gracefully
     });
     
     it('should track cache size changes during operations', async () => {
@@ -1124,7 +1128,7 @@ describe('PGLiteStorageProvider', () => {
       
       // Initial size should be 0
       let cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 0);
+      expect(cacheSize).toBe(0);
       
       // Add first item
       await provider.setComponent({ 
@@ -1135,7 +1139,7 @@ describe('PGLiteStorageProvider', () => {
       });
       
       cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 100);
+      expect(cacheSize).toBe(100);
       
       // Add second item
       await provider.setBlock({ 
@@ -1146,19 +1150,19 @@ describe('PGLiteStorageProvider', () => {
       });
       
       cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 300);
+      expect(cacheSize).toBe(300);
       
       // Delete first item
       await provider.delete('component:react:track1');
       
       cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 200);
+      expect(cacheSize).toBe(200);
       
       // Clear all
       await provider.clear();
       
       cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 0);
+      expect(cacheSize).toBe(0);
     });
     
     it('should maintain accurate size during updates', async () => {
@@ -1173,7 +1177,7 @@ describe('PGLiteStorageProvider', () => {
       });
       
       let cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 100);
+      expect(cacheSize).toBe(100);
       
       // Update with larger size
       await provider.setComponent({ 
@@ -1184,7 +1188,7 @@ describe('PGLiteStorageProvider', () => {
       });
       
       cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 300);
+      expect(cacheSize).toBe(300);
       
       // Update with smaller size
       await provider.setComponent({ 
@@ -1195,7 +1199,7 @@ describe('PGLiteStorageProvider', () => {
       });
       
       cacheSize = await provider.getCurrentCacheSize();
-      assert.strictEqual(cacheSize, 50);
+      expect(cacheSize).toBe(50);
     });
   });
 
@@ -1226,24 +1230,22 @@ describe('PGLiteStorageProvider', () => {
       // Verify all were set
       for (let i = 0; i < 5; i++) {
         const comp = await provider.getComponent('react', `concurrent-${i}`);
-        assert.ok(comp);
-        assert.strictEqual(comp.sourceCode, `code ${i}`);
+        expect(comp).toBeTruthy();
+        expect(comp.sourceCode).toBe(`code ${i}`);
         
         const block = await provider.getBlock('react', `concurrent-block-${i}`);
-        assert.ok(block);
+        expect(block).toBeTruthy();
       }
     });
 
     it('should validate keys properly', async () => {
-      await assert.rejects(
-        async () => await provider.set('', { framework: 'react', name: 'test', sourceCode: 'code' }),
-        /Storage key must be a non-empty string/
-      );
+      await expect(async () => {
+        await provider.set('', { framework: 'react', name: 'test', sourceCode: 'code' });
+      }).rejects.toThrow(/Storage key must be a non-empty string/);
       
-      await assert.rejects(
-        async () => await provider.set('x'.repeat(300), { framework: 'react', name: 'test', sourceCode: 'code' }),
-        /Storage key must not exceed 255 characters/
-      );
+      await expect(async () => {
+        await provider.set('x'.repeat(300), { framework: 'react', name: 'test', sourceCode: 'code' });
+      }).rejects.toThrow(/Storage key must not exceed 255 characters/);
     });
   });
 });

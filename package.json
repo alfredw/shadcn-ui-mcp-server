@@ -18,7 +18,9 @@
     "prepublishOnly": "npm run clean && npm run build && chmod +x build/index.js",
     "start": "node build/index.js",
     "dev": "tsc && node build/index.js",
-    "test": "npm run build && node --test test/**/*.test.js",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "coverage": "vitest run --coverage",
     "test:package": "./test-package.sh",
     "examples": "./examples.sh"
   },
@@ -50,8 +52,12 @@
     "@electric-sql/pglite": "^0.3.6",
     "@modelcontextprotocol/sdk": "^1.16.0",
     "axios": "^1.8.4",
+    "chalk": "^5.4.1",
     "cheerio": "^1.0.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.0",
     "joi": "^17.13.3",
+    "ora": "^8.2.0",
     "uuid": "^10.0.0",
     "winston": "^3.15.0",
     "zod": "^3.24.2"
@@ -59,6 +65,9 @@
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/uuid": "^10.0.0",
-    "typescript": "^5.7.2"
+    "@vitest/coverage-v8": "^3.2.4",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4",
+    "vitest-mock-extended": "^3.1.0"
   }
 }

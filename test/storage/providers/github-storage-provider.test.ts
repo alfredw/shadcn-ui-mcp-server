@@ -1,52 +1,14 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
-import assert from 'node:assert';
+/**
+ * GitHub Storage Provider Tests - Vitest Edition
+ * Converted from Node.js native test to Vitest
+ */
+
+import { describe, it, beforeEach, afterEach } from 'vitest';
+import { expect } from 'vitest';
 import { GitHubStorageProvider } from '../../../build/storage/index.js';
 
-// Simple mock function implementation
-function createMock(returnValue) {
-  let calls = 0;
-  let callArgs = [];
-  
-  const mockFn = (...args) => {
-    calls++;
-    callArgs.push(args);
-    if (typeof returnValue === 'function') {
-      return returnValue(...args);
-    }
-    return returnValue;
-  };
-  
-  mockFn.mockResolvedValue = (value) => {
-    returnValue = Promise.resolve(value);
-    return mockFn;
-  };
-  
-  mockFn.mockRejectedValue = (error) => {
-    returnValue = Promise.reject(error);
-    return mockFn;
-  };
-  
-  mockFn.mockReset = () => {
-    calls = 0;
-    callArgs = [];
-    return mockFn;
-  };
-  
-  mockFn.toHaveBeenCalled = () => calls > 0;
-  mockFn.toHaveBeenCalledTimes = (expectedCalls) => calls === expectedCalls;
-  mockFn.toHaveBeenCalledWith = (...expectedArgs) => {
-    return callArgs.some(args => 
-      args.length === expectedArgs.length && 
-      args.every((arg, i) => arg === expectedArgs[i])
-    );
-  };
-  mockFn.callCount = () => calls;
-  
-  return mockFn;
-}
-
 describe('GitHubStorageProvider', () => {
-  let gitHubStorage;
+  let gitHubStorage: GitHubStorageProvider;
   
   beforeEach(async () => {
     gitHubStorage = new GitHubStorageProvider({
@@ -67,9 +29,9 @@ describe('GitHubStorageProvider', () => {
       const storage = new GitHubStorageProvider();
       const config = storage.getGitHubConfig();
       
-      assert.strictEqual(config.enableCache, true);
-      assert.strictEqual(config.timeout, 30000);
-      assert.strictEqual(config.cacheTTL, 300);
+      expect(config.enableCache).toBe(true);
+      expect(config.timeout).toBe(30000);
+      expect(config.cacheTTL).toBe(300);
     });
     
     it('should use custom configuration', () => {
@@ -82,10 +44,10 @@ describe('GitHubStorageProvider', () => {
       
       const config = storage.getGitHubConfig();
       
-      assert.strictEqual(config.apiKey, 'test-key');
-      assert.strictEqual(config.timeout, 15000);
-      assert.strictEqual(config.enableCache, false);
-      assert.strictEqual(config.cacheTTL, 600);
+      expect(config.apiKey).toBe('test-key');
+      expect(config.timeout).toBe(15000);
+      expect(config.enableCache).toBe(false);
+      expect(config.cacheTTL).toBe(600);
     });
   });
   
@@ -94,33 +56,33 @@ describe('GitHubStorageProvider', () => {
       await gitHubStorage.set('cache:test', { data: 'test' });
       const result = await gitHubStorage.get('cache:test');
       
-      assert.deepStrictEqual(result, { data: 'test' });
+      expect(result).toEqual({ data: 'test' });
     });
     
     it('should handle has operations', async () => {
-      assert.strictEqual(await gitHubStorage.has('nonexistent'), false);
+      expect(await gitHubStorage.has('nonexistent')).toBe(false);
       
       await gitHubStorage.set('exists', 'value');
-      assert.strictEqual(await gitHubStorage.has('exists'), true);
+      expect(await gitHubStorage.has('exists')).toBe(true);
     });
     
     it('should handle delete operations', async () => {
       await gitHubStorage.set('delete:test', 'value');
-      assert.strictEqual(await gitHubStorage.has('delete:test'), true);
+      expect(await gitHubStorage.has('delete:test')).toBe(true);
       
       const deleted = await gitHubStorage.delete('delete:test');
-      assert.strictEqual(deleted, true);
-      assert.strictEqual(await gitHubStorage.has('delete:test'), false);
+      expect(deleted).toBe(true);
+      expect(await gitHubStorage.has('delete:test')).toBe(false);
     });
     
     it('should handle clear operations', async () => {
       await gitHubStorage.set('clear:1', 'value1');
       await gitHubStorage.set('clear:2', 'value2');
       
-      assert.strictEqual(await gitHubStorage.size(), 2);
+      expect(await gitHubStorage.size()).toBe(2);
       
       await gitHubStorage.clear();
-      assert.strictEqual(await gitHubStorage.size(), 0);
+      expect(await gitHubStorage.size()).toBe(0);
     });
   });
   
@@ -135,7 +97,7 @@ describe('GitHubStorageProvider', () => {
       await gitHubStorage.mset(data);
       
       for (const [key, value] of data) {
-        assert.strictEqual(await gitHubStorage.get(key), value);
+        expect(await gitHubStorage.get(key)).toBe(value);
       }
     });
     
@@ -147,10 +109,10 @@ describe('GitHubStorageProvider', () => {
       const keys = ['batch:get:1', 'batch:get:2', 'batch:get:missing'];
       const results = await gitHubStorage.mget(keys);
       
-      assert.strictEqual(results.size, 2);
-      assert.strictEqual(results.get('batch:get:1'), 'value1');
-      assert.strictEqual(results.get('batch:get:2'), 'value2');
-      assert.strictEqual(results.has('batch:get:missing'), false);
+      expect(results.size).toBe(2);
+      expect(results.get('batch:get:1')).toBe('value1');
+      expect(results.get('batch:get:2')).toBe('value2');
+      expect(results.has('batch:get:missing')).toBe(false);
     });
   });
   
@@ -162,9 +124,9 @@ describe('GitHubStorageProvider', () => {
       
       const keys = await gitHubStorage.keys();
       
-      assert.ok(keys.includes('pattern:1'));
-      assert.ok(keys.includes('pattern:2'));
-      assert.ok(keys.includes('other'));
+      expect(keys).toContain('pattern:1');
+      expect(keys).toContain('pattern:2');
+      expect(keys).toContain('other');
     });
     
     it('should filter keys by pattern', async () => {
@@ -174,9 +136,9 @@ describe('GitHubStorageProvider', () => {
       
       const componentKeys = await gitHubStorage.keys('component:*');
       
-      assert.ok(componentKeys.includes('component:react:button'));
-      assert.ok(componentKeys.includes('component:react:card'));
-      assert.ok(!componentKeys.includes('block:react:dashboard'));
+      expect(componentKeys).toContain('component:react:button');
+      expect(componentKeys).toContain('component:react:card');
+      expect(componentKeys).not.toContain('block:react:dashboard');
     });
   });
   
@@ -190,14 +152,14 @@ describe('GitHubStorageProvider', () => {
       
       // Set some data
       await shortTTLStorage.set('ttl:test', 'value');
-      assert.strictEqual(await shortTTLStorage.get('ttl:test'), 'value');
+      expect(await shortTTLStorage.get('ttl:test')).toBe('value');
       
       // Wait for cache to expire
       await new Promise(resolve => setTimeout(resolve, 150));
       
       // Data should be expired and return undefined
       const result = await shortTTLStorage.get('ttl:test');
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
       
       await shortTTLStorage.dispose();
     });
@@ -216,7 +178,7 @@ describe('GitHubStorageProvider', () => {
       
       // This will be undefined because GitHub provider doesn't actually store data
       // when caching is disabled - it only fetches from GitHub API
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
       
       await noCacheStorage.dispose();
     });
@@ -231,15 +193,15 @@ describe('GitHubStorageProvider', () => {
       await storage.set('test:key1', 'value1');
       await storage.set('test:key2', 'value2');
       
-      assert.strictEqual(await storage.size(), 2);
+      expect(await storage.size()).toBe(2);
       
       // Wait for expiration
       await new Promise(resolve => setTimeout(resolve, 150));
       
       // Cleanup should remove expired entries
       const cleaned = await storage.cleanup();
-      assert.strictEqual(cleaned, 2);
-      assert.strictEqual(await storage.size(), 0);
+      expect(cleaned).toBe(2);
+      expect(await storage.size()).toBe(0);
       
       await storage.dispose();
     });
@@ -249,12 +211,12 @@ describe('GitHubStorageProvider', () => {
     it('should handle unsupported component requests gracefully', async () => {
       // Test with an invalid component format that should return undefined
       const result = await gitHubStorage.get('component:vue:button');
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
     });
     
     it('should handle invalid key formats', async () => {
       const result = await gitHubStorage.get('invalid-key-format');
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
     });
   });
   
@@ -262,7 +224,7 @@ describe('GitHubStorageProvider', () => {
     it('should handle unsupported block requests gracefully', async () => {
       // Test with an invalid block format that should return undefined
       const result = await gitHubStorage.get('block:svelte:dashboard');
-      assert.strictEqual(result, undefined);
+      expect(result).toBeUndefined();
     });
   });
   
@@ -272,12 +234,12 @@ describe('GitHubStorageProvider', () => {
       
       // The GitHubStorageProvider should handle unknown metadata gracefully
       if (result !== undefined) {
-        assert.strictEqual(result.type, 'metadata');
-        assert.strictEqual(result.subtype, 'unknown');
-        assert.ok(result.message.includes('Unknown metadata type'));
+        expect(result.type).toBe('metadata');
+        expect(result.subtype).toBe('unknown');
+        expect(result.message).toContain('Unknown metadata type');
       } else {
         // It's also valid for it to return undefined for unknown types
-        assert.strictEqual(result, undefined);
+        expect(result).toBeUndefined();
       }
     });
   });
@@ -287,18 +249,18 @@ describe('GitHubStorageProvider', () => {
       await gitHubStorage.set('dispose:test', 'value');
       
       await gitHubStorage.dispose();
-      assert.strictEqual(gitHubStorage.isDisposed(), true);
+      expect(gitHubStorage.isDisposed()).toBe(true);
       
-      await assert.rejects(gitHubStorage.get('dispose:test'));
+      await expect(gitHubStorage.get('dispose:test')).rejects.toThrow();
     });
     
     it('should handle invalid operations after disposal', async () => {
       await gitHubStorage.dispose();
       
-      await assert.rejects(gitHubStorage.set('new:key', 'value'));
-      await assert.rejects(gitHubStorage.has('any:key'));
-      await assert.rejects(gitHubStorage.delete('any:key'));
-      await assert.rejects(gitHubStorage.clear());
+      await expect(gitHubStorage.set('new:key', 'value')).rejects.toThrow();
+      await expect(gitHubStorage.has('any:key')).rejects.toThrow();
+      await expect(gitHubStorage.delete('any:key')).rejects.toThrow();
+      await expect(gitHubStorage.clear()).rejects.toThrow();
     });
   });
   
@@ -311,31 +273,31 @@ describe('GitHubStorageProvider', () => {
       const metadata = await gitHubStorage.getMetadata(key);
       
       if (metadata !== null) {
-        assert.strictEqual(metadata.key, key);
-        assert.ok(metadata.size > 0);
-        assert.ok(metadata.createdAt instanceof Date);
-        assert.ok(metadata.updatedAt instanceof Date);
+        expect(metadata.key).toBe(key);
+        expect(metadata.size).toBeGreaterThan(0);
+        expect(metadata.createdAt).toBeInstanceOf(Date);
+        expect(metadata.updatedAt).toBeInstanceOf(Date);
       }
     });
     
     it('should return null for non-existent metadata', async () => {
       const metadata = await gitHubStorage.getMetadata('non:existent');
-      assert.strictEqual(metadata, null);
+      expect(metadata).toBeNull();
     });
   });
   
   describe('Size Tracking', () => {
     it('should track storage size accurately', async () => {
-      assert.strictEqual(await gitHubStorage.size(), 0);
+      expect(await gitHubStorage.size()).toBe(0);
       
       await gitHubStorage.set('size:1', 'value1');
-      assert.strictEqual(await gitHubStorage.size(), 1);
+      expect(await gitHubStorage.size()).toBe(1);
       
       await gitHubStorage.set('size:2', 'value2');
-      assert.strictEqual(await gitHubStorage.size(), 2);
+      expect(await gitHubStorage.size()).toBe(2);
       
       await gitHubStorage.delete('size:1');
-      assert.strictEqual(await gitHubStorage.size(), 1);
+      expect(await gitHubStorage.size()).toBe(1);
     });
   });
 });

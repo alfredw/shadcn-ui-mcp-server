@@ -78,3 +78,62 @@ This is a Model Context Protocol (MCP) server that provides AI assistants with a
 - GitHub API token is optional but recommended (60 vs 5000 requests/hour)
 - All component fetching goes through the configured axios instance which handles framework-specific paths
 - The server uses stdio transport for MCP communication
+
+## Testing Best Practices
+
+### CLI Testing Methodology
+
+**✅ DO: Behavior-Based Testing**
+- Test that functions perform correct operations (storage calls, business logic)
+- Verify function calls and side effects rather than output formatting
+- Focus on testing the actual behavior users care about
+
+```typescript
+// ✅ Good: Test actual behavior
+expect(isStorageInitialized).toHaveBeenCalled();
+expect(getStorageStats).toHaveBeenCalled();
+expect(getCircuitBreakerStatus).toHaveBeenCalled();
+```
+
+**❌ DON'T: Console.log Spy Testing**
+- Avoid testing console output in CLI commands with complex async operations
+- Console.log spies create race conditions with spinner systems
+- Testing implementation details rather than user-facing behavior
+
+```typescript
+// ❌ Bad: Brittle implementation testing
+expect(consoleSpy.log).toHaveBeenCalled();
+expect(output).toContain('Cache Statistics');
+```
+
+### Async/Sync Mocking
+
+**Always match the actual function signature:**
+
+```typescript
+// ✅ Correct: getStorageStats() is synchronous
+vi.mocked(getStorageStats).mockReturnValue(mockStats);
+
+// ❌ Wrong: Creates race conditions
+vi.mocked(getStorageStats).mockResolvedValue(mockStats);
+```
+
+### Test Environment Setup
+
+**For CLI commands:**
+- Set `NODE_ENV=development` in tests to enable console output from spinners
+- Focus on verifying storage operations rather than console capture
+- Follow the pattern from `test/cli/cache-stats.vitest.test.ts` for CLI testing
+
+### Key Lessons Learned
+
+1. **Test behavior, not implementation details** - verify operations, not output formatting
+2. **Console.log spies are anti-pattern** for complex async CLI systems  
+3. **Follow proven patterns** - working tests show the right approach
+4. **Focus on business logic** - storage operations are what matter
+
+### Working Test Examples
+
+- `test/cli/cache-stats.vitest.test.ts` - ✅ Correct CLI testing pattern
+- `test/cli/cli-integration.test.ts` - ✅ Fixed to use behavior-based testing
+- `test/storage/providers/pglite-storage-provider.test.ts` - ✅ Comprehensive storage testing

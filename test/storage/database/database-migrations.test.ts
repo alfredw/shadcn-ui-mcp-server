@@ -1,8 +1,13 @@
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert';
+/**
+ * Database Migrations Tests - Vitest Edition
+ * Converted from Node.js native test to Vitest
+ */
+
+import { describe, it, beforeAll, afterAll } from 'vitest';
+import { expect } from 'vitest';
 import { PGLiteManager } from '../../../build/storage/database/manager.js';
 import { MigrationRunner } from '../../../build/storage/database/migrations.js';
-import { rm, mkdir, writeFile } from 'fs/promises';
+import { rm, mkdir } from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
@@ -12,12 +17,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 describe('MigrationRunner', () => {
-  let manager;
-  let runner;
+  let manager: PGLiteManager;
+  let runner: MigrationRunner;
   const testDbPath = path.join(os.tmpdir(), 'test-migrations.db');
   const testMigrationsPath = path.join(__dirname, 'test-migrations');
 
-  before(async () => {
+  beforeAll(async () => {
     // Clean up any existing test database
     await rm(testDbPath, { force: true, recursive: true });
     await rm(testMigrationsPath, { force: true, recursive: true });
@@ -33,7 +38,7 @@ describe('MigrationRunner', () => {
     runner = new MigrationRunner(db);
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (manager) {
       await manager.close();
     }
@@ -43,7 +48,7 @@ describe('MigrationRunner', () => {
 
   it('should get current version', async () => {
     const version = await runner.getCurrentVersion();
-    assert.strictEqual(version, 0, 'Initial version should be 0');
+    expect(version).toBe(0);
   });
 
   it('should load and apply migrations', async () => {
@@ -58,7 +63,7 @@ describe('MigrationRunner', () => {
     await runner.applyMigration(migration);
     
     const version = await runner.getCurrentVersion();
-    assert.strictEqual(version, 3, 'Version should be updated to 3');
+    expect(version).toBe(3);
     
     // Check if table was created
     const db = await manager.getConnection();
@@ -67,7 +72,7 @@ describe('MigrationRunner', () => {
       FROM information_schema.tables 
       WHERE table_name = 'test_table'
     `);
-    assert.strictEqual(result.rows.length, 1, 'Test table should exist');
+    expect(result.rows).toHaveLength(1);
   });
 
   it('should rollback migrations', async () => {
@@ -81,7 +86,7 @@ describe('MigrationRunner', () => {
     await runner.rollbackMigration(migration);
     
     const version = await runner.getCurrentVersion();
-    assert.strictEqual(version, 0, 'Version should be back to 0');
+    expect(version).toBe(0);
     
     // Check if table was dropped
     const db = await manager.getConnection();
@@ -90,7 +95,7 @@ describe('MigrationRunner', () => {
       FROM information_schema.tables 
       WHERE table_name = 'test_table'
     `);
-    assert.strictEqual(result.rows.length, 0, 'Test table should not exist');
+    expect(result.rows).toHaveLength(0);
   });
 
   it('should handle migration errors', async () => {
@@ -101,14 +106,12 @@ describe('MigrationRunner', () => {
       down: ''
     };
     
-    await assert.rejects(
-      async () => await runner.applyMigration(invalidMigration),
-      /syntax error/,
-      'Should throw error for invalid SQL'
-    );
+    await expect(
+      runner.applyMigration(invalidMigration)
+    ).rejects.toThrow(/syntax error/);
     
     // Version should not change
     const version = await runner.getCurrentVersion();
-    assert.strictEqual(version, 0, 'Version should remain 0 after failed migration');
+    expect(version).toBe(0);
   });
 });

@@ -12,9 +12,11 @@
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { Command } from 'commander';
 import { setupHandlers } from './handler.js';
 import { validateFrameworkSelection, getAxiosImplementation } from './utils/framework.js';
 import { initializeStorage, disposeStorage } from './utils/storage-integration.js';
+import { setupCacheCommands, setupCacheFlags, handleCacheFlags, isCacheCommand, showCacheHelp } from './cli/index.js';
 import { z } from 'zod';
 import { 
   toolHandlers,
@@ -24,110 +26,114 @@ import { logError, logInfo, logWarning } from './utils/logger.js';
 
 
 /**
- * Parse command line arguments
+ * Setup and parse command line arguments using Commander.js
  */
-async function parseArgs() {
-  const args = process.argv.slice(2);
-  
-  // Help flag
-  if (args.includes('--help') || args.includes('-h')) {
+async function setupCommandLine() {
+  const program = new Command();
+
+  // Read version from package.json
+  let version = '1.0.3';
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+    
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const packagePath = path.join(__dirname, '..', 'package.json');
+    
+    const packageContent = fs.readFileSync(packagePath, 'utf8');
+    const packageJson = JSON.parse(packageContent);
+    version = packageJson.version;
+  } catch (error) {
+    // Use default version
+  }
+
+  // Configure main program
+  program
+    .name('shadcn-ui-mcp-server')
+    .description('A Model Context Protocol (MCP) server for shadcn/ui components')
+    .version(version, '-v, --version', 'Show version information')
+    .option('-g, --github-api-key <token>', 'GitHub Personal Access Token for API access')
+    .option('-f, --framework <framework>', 'Framework to use: react or svelte', 'react')
+    .helpOption('-h, --help', 'Show help information')
+    .action(async (options) => {
+      // Handle cache flags in the main action
+      const cacheHandled = await handleCacheFlags(options);
+      if (cacheHandled) {
+        return;
+      }
+      
+      // Start MCP server
+      await startMCPServer(options);
+    });
+
+  // Setup cache commands and flags
+  setupCacheCommands(program);
+  setupCacheFlags(program);
+
+  // Custom help text
+  program.on('--help', () => {
     console.log(`
-Shadcn UI v4 MCP Server
-
-Usage:
-  npx shadcn-ui-mcp-server [options]
-
-Options:
-  --github-api-key, -g <token>    GitHub Personal Access Token for API access
-  --framework, -f <framework>     Framework to use: 'react' or 'svelte' (default: react)
-  --help, -h                      Show this help message
-  --version, -v                   Show version information
-
-Examples:
-  npx shadcn-ui-mcp-server
-  npx shadcn-ui-mcp-server --github-api-key ghp_your_token_here
-  npx shadcn-ui-mcp-server -g ghp_your_token_here
-  npx shadcn-ui-mcp-server --framework svelte
-  npx shadcn-ui-mcp-server -f react
-
 Environment Variables:
   GITHUB_PERSONAL_ACCESS_TOKEN    Alternative way to provide GitHub token
   FRAMEWORK                       Framework to use: 'react' or 'svelte' (default: react)
   LOG_LEVEL                       Log level (debug, info, warn, error) - default: info
 
-For more information, visit: https://github.com/Jpisnice/shadcn-ui-mcp-server
+Examples:
+  npx shadcn-ui-mcp-server
+  npx shadcn-ui-mcp-server --github-api-key ghp_your_token_here
+  npx shadcn-ui-mcp-server --framework svelte
+  npx shadcn-ui-mcp-server cache stats
+  npx shadcn-ui-mcp-server --cache-stats --format json
+
+For more information:
+  https://github.com/Jpisnice/shadcn-ui-mcp-server
 `);
-    process.exit(0);
-  }
+  });
 
-  // Version flag
-  if (args.includes('--version') || args.includes('-v')) {
-    // Read version from package.json
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const { fileURLToPath } = await import('url');
-      
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const packagePath = path.join(__dirname, '..', 'package.json');
-      
-      const packageContent = fs.readFileSync(packagePath, 'utf8');
-      const packageJson = JSON.parse(packageContent);
-      console.log(`shadcn-ui-mcp-server v${packageJson.version}`);
-    } catch (error) {
-      console.log('shadcn-ui-mcp-server v1.0.2');
-    }
-    process.exit(0);
-  }
-
-  // GitHub API key
-  const githubApiKeyIndex = args.findIndex(arg => arg === '--github-api-key' || arg === '-g');
-  let githubApiKey = null;
-  
-  if (githubApiKeyIndex !== -1 && args[githubApiKeyIndex + 1]) {
-    githubApiKey = args[githubApiKeyIndex + 1];
-  } else if (process.env.GITHUB_PERSONAL_ACCESS_TOKEN) {
-    githubApiKey = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-  }
-
-  return { githubApiKey };
+  return program;
 }
 
 /**
- * Main function to start the MCP server
+ * Start the MCP server
  */
-async function main() {
+async function startMCPServer(options: any) {
+  logInfo('Starting Shadcn UI v4 MCP Server...');
+
+  // Extract GitHub API key
+  const githubApiKey = options.githubApiKey || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+
+  // Set framework from options
+  if (options.framework) {
+    process.env.FRAMEWORK = options.framework;
+  }
+
+  // Validate and log framework selection
+  validateFrameworkSelection();
+
+  // Get the appropriate axios implementation based on framework
+  const axios = await getAxiosImplementation();
+
+  // Configure GitHub API key if provided
+  if (githubApiKey) {
+    axios.setGitHubApiKey(githubApiKey);
+    logInfo('GitHub API configured with token');
+  } else {
+    logWarning('No GitHub API key provided. Rate limited to 60 requests/hour.');
+  }
+
+  // Initialize hybrid storage system
   try {
-    logInfo('Starting Shadcn UI v4 MCP Server...');
+    await initializeStorage();
+    logInfo('Hybrid storage system initialized');
+  } catch (error) {
+    logError('Failed to initialize storage system, continuing without caching', error);
+  }
 
-    const { githubApiKey } = await parseArgs();
-
-    // Validate and log framework selection
-    validateFrameworkSelection();
-
-    // Get the appropriate axios implementation based on framework
-    const axios = await getAxiosImplementation();
-
-    // Configure GitHub API key if provided
-    if (githubApiKey) {
-      axios.setGitHubApiKey(githubApiKey);
-      logInfo('GitHub API configured with token');
-    } else {
-      logWarning('No GitHub API key provided. Rate limited to 60 requests/hour.');
-    }
-
-    // Initialize hybrid storage system
-    try {
-      await initializeStorage();
-      logInfo('Hybrid storage system initialized');
-    } catch (error) {
-      logError('Failed to initialize storage system, continuing without caching', error);
-    }
-
-    // Initialize the MCP server with metadata and capabilities
-    // Following MCP SDK 1.16.0 best practices
-    const server = new Server(
+  // Initialize the MCP server with metadata and capabilities
+  // Following MCP SDK 1.16.0 best practices
+  const server = new Server(
       {
         name: "shadcn-ui-mcp-server",
         version: "1.0.2",
@@ -340,6 +346,34 @@ async function main() {
 
     process.on('SIGINT', cleanup);
     process.on('SIGTERM', cleanup);
+}
+
+/**
+ * Main function to start the MCP server or handle cache commands
+ */
+async function main() {
+  try {
+    // Setup command line interface
+    const program = await setupCommandLine();
+    
+    // Check if this is a cache command before parsing
+    const args = process.argv.slice(2);
+    
+    if (isCacheCommand(args)) {
+      // Initialize storage for cache commands
+      try {
+        await initializeStorage();
+      } catch (error) {
+        logError('Failed to initialize storage for cache command', error);
+      }
+      
+      // Parse and execute cache command
+      await program.parseAsync();
+      return;
+    }
+
+    // Parse arguments for MCP server mode
+    await program.parseAsync();
 
   } catch (error) {
     logError('Failed to start server', error);
