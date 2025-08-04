@@ -116,6 +116,16 @@ export function createStatsTable(stats: any): string {
     );
   }
 
+  // Deduplication section
+  if (stats.deduplication) {
+    table.push(
+      [chalk.bold('Deduplication'), 'Total Requests', stats.deduplication.totalRequests.toString()],
+      ['', 'Deduplicated', stats.deduplication.deduplicatedRequests.toString()],
+      ['', 'Deduplication Rate', formatPercentage(stats.deduplication.deduplicationRate)],
+      ['', 'Currently In-Flight', stats.deduplication.currentInFlight.toString()]
+    );
+  }
+
   return table.toString();
 }
 
@@ -217,4 +227,185 @@ export function createProgressBar(current: number, total: number, width = 20): s
   
   const bar = chalk.green('█'.repeat(filled)) + chalk.grey('░'.repeat(empty));
   return `${bar} ${percentage.toFixed(1)}% (${current}/${total})`;
+}
+
+/**
+ * Percentile statistics interface
+ */
+export interface PercentileStats {
+  p50: number;
+  p95: number;
+  p99: number;
+}
+
+/**
+ * Calculate percentiles from response time arrays
+ */
+export function calculatePercentiles(times: number[]): PercentileStats {
+  if (times.length === 0) {
+    return { p50: 0, p95: 0, p99: 0 };
+  }
+  
+  const sorted = [...times].sort((a, b) => a - b);
+  const len = sorted.length;
+  
+  return {
+    p50: sorted[Math.floor(len * 0.5)] || 0,
+    p95: sorted[Math.floor(len * 0.95)] || 0,
+    p99: sorted[Math.floor(len * 0.99)] || 0
+  };
+}
+
+/**
+ * Format latency value with color coding
+ */
+export function formatLatency(ms: number): string {
+  const duration = formatDuration(ms);
+  
+  if (ms < 100) return chalk.green(duration);
+  if (ms < 500) return chalk.yellow(duration);
+  return chalk.red(duration);
+}
+
+/**
+ * Create latency percentiles table section
+ */
+export function createLatencyTable(stats: any): string {
+  if (!stats.responseTimes) {
+    return chalk.yellow('No latency data available');
+  }
+  
+  const table = new Table({
+    head: [chalk.cyan('Tier'), chalk.cyan('p50'), chalk.cyan('p95'), chalk.cyan('p99'), chalk.cyan('Samples')],
+    style: { 
+      head: [], 
+      border: ['grey'] 
+    }
+  });
+
+  // Calculate percentiles for each tier
+  const memoryPercentiles = calculatePercentiles(stats.responseTimes.memory || []);
+  const pglitePercentiles = calculatePercentiles(stats.responseTimes.pglite || []);
+  const githubPercentiles = calculatePercentiles(stats.responseTimes.github || []);
+
+  table.push(
+    [
+      'Memory (L1)',
+      formatLatency(memoryPercentiles.p50),
+      formatLatency(memoryPercentiles.p95),
+      formatLatency(memoryPercentiles.p99),
+      (stats.responseTimes.memory?.length || 0).toString()
+    ],
+    [
+      'PGLite (L2)',
+      formatLatency(pglitePercentiles.p50),
+      formatLatency(pglitePercentiles.p95),
+      formatLatency(pglitePercentiles.p99),
+      (stats.responseTimes.pglite?.length || 0).toString()
+    ],
+    [
+      'GitHub (L3)',
+      formatLatency(githubPercentiles.p50),
+      formatLatency(githubPercentiles.p95),
+      formatLatency(githubPercentiles.p99),
+      (stats.responseTimes.github?.length || 0).toString()
+    ]
+  );
+
+  return table.toString();
+}
+
+/**
+ * Create recent operations history table
+ */
+export function createHistoryTable(stats: any, limit: number = 10): string {
+  // For now, we'll simulate recent operations since the current stats don't track individual operations
+  // In a future enhancement, we could add operation tracking to the storage layer
+  
+  if (!stats.responseTimes || Object.values(stats.responseTimes).every((arr: any) => !arr?.length)) {
+    return chalk.yellow('No operation history available');
+  }
+  
+  const table = new Table({
+    head: [chalk.cyan('Tier'), chalk.cyan('Response Time'), chalk.cyan('Status')],
+    style: { 
+      head: [], 
+      border: ['grey'] 
+    }
+  });
+
+  // Show recent response times from each tier (most recent first)
+  const recentOperations: Array<{tier: string, time: number}> = [];
+  
+  // Get last few operations from each tier
+  const memoryTimes = (stats.responseTimes.memory || []).slice(-3);
+  const pgliteTimes = (stats.responseTimes.pglite || []).slice(-3);
+  const githubTimes = (stats.responseTimes.github || []).slice(-3);
+  
+  memoryTimes.forEach((time: number) => recentOperations.push({ tier: 'Memory (L1)', time }));
+  pgliteTimes.forEach((time: number) => recentOperations.push({ tier: 'PGLite (L2)', time }));
+  githubTimes.forEach((time: number) => recentOperations.push({ tier: 'GitHub (L3)', time }));
+  
+  // Sort by response time (most recent activity typically has different patterns)
+  recentOperations.sort((a, b) => b.time - a.time);
+  
+  // Take the requested limit
+  const limitedOps = recentOperations.slice(0, limit);
+  
+  if (limitedOps.length === 0) {
+    return chalk.yellow('No recent operations found');
+  }
+  
+  limitedOps.forEach(op => {
+    const status = op.time < 100 ? chalk.green('Fast') : 
+                   op.time < 500 ? chalk.yellow('Normal') : 
+                   chalk.red('Slow');
+    
+    table.push([
+      op.tier,
+      formatLatency(op.time),
+      status
+    ]);
+  });
+
+  return table.toString();
+}
+
+/**
+ * Generic function to format array of objects as table
+ */
+export function formatAsTable(data: Record<string, any>[]): string {
+  if (!data || data.length === 0) {
+    return chalk.yellow('No data to display');
+  }
+  
+  // Get all unique keys from the data
+  const keys = [...new Set(data.flatMap(Object.keys))];
+  
+  const table = new Table({
+    head: keys.map(key => chalk.cyan(key)),
+    style: { 
+      head: [], 
+      border: ['grey'] 
+    }
+  });
+  
+  data.forEach(row => {
+    const values = keys.map(key => {
+      const value = row[key];
+      if (value === null || value === undefined) {
+        return chalk.gray('--');
+      }
+      if (typeof value === 'boolean') {
+        return value ? chalk.green('✓') : chalk.red('✗');
+      }
+      if (typeof value === 'object') {
+        return chalk.gray('[object]');
+      }
+      return String(value);
+    });
+    table.push(values);
+  });
+  
+  return table.toString();
 }

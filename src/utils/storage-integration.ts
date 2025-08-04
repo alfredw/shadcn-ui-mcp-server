@@ -8,7 +8,9 @@ import {
   CacheStrategy, 
   type HybridStorageConfig 
 } from '../storage/index.js';
+import { ConfigurationManager, CacheConfiguration } from '../config/index.js';
 import { logError, logInfo, logWarning } from './logger.js';
+import { RequestDeduplicator } from './request-deduplicator.js';
 
 /**
  * Global storage instance for the MCP server
@@ -16,9 +18,74 @@ import { logError, logInfo, logWarning } from './logger.js';
 let globalStorage: HybridStorageProvider | null = null;
 
 /**
- * Storage configuration based on environment variables
+ * Global configuration manager instance
  */
-function getStorageConfig(): HybridStorageConfig {
+let globalConfigManager: ConfigurationManager | null = null;
+
+/**
+ * Global request deduplicator instance
+ */
+const globalRequestDeduplicator = new RequestDeduplicator();
+
+/**
+ * Get or create the configuration manager instance
+ */
+export function getConfigurationManager(): ConfigurationManager {
+  if (!globalConfigManager) {
+    globalConfigManager = new ConfigurationManager();
+  }
+  return globalConfigManager;
+}
+
+/**
+ * Storage configuration using new ConfigurationManager
+ */
+async function getStorageConfig(): Promise<HybridStorageConfig> {
+  try {
+    const configManager = getConfigurationManager();
+    
+    // Ensure configuration is loaded
+    if (!configManager.getAll) {
+      await configManager.load();
+    }
+    
+    const config = configManager.getAll();
+    
+    // Map from CacheConfiguration to HybridStorageConfig
+    return {
+      memory: {
+        enabled: config.storage.memory?.enabled ?? true,
+        maxSize: config.storage.memory?.maxSize ?? 50 * 1024 * 1024,
+        ttl: config.storage.memory?.ttl ?? 3600
+      },
+      pglite: {
+        enabled: config.storage.pglite?.enabled ?? true,
+        maxSize: config.storage.pglite?.maxSize ?? 100 * 1024 * 1024,
+        ttl: 24 * 3600 // Default 24 hours - PGLite config doesn't have TTL in schema
+      },
+      github: {
+        enabled: config.storage.github?.enabled ?? true,
+        apiKey: config.storage.github?.token ?? process.env.GITHUB_PERSONAL_ACCESS_TOKEN ?? '',
+        timeout: config.storage.github?.timeout ?? 30000
+      },
+      strategy: mapCacheStrategy(config.cache.strategy),
+      circuitBreaker: {
+        threshold: config.circuitBreaker.threshold,
+        timeout: config.circuitBreaker.timeout,
+        successThreshold: 2 // Default for hybrid storage
+      },
+      debug: process.env.LOG_LEVEL === 'debug' || process.env.STORAGE_DEBUG === 'true'
+    };
+  } catch (error) {
+    logWarning('Failed to load configuration, falling back to legacy environment-based config');
+    return getLegacyStorageConfig();
+  }
+}
+
+/**
+ * Legacy storage configuration for backward compatibility
+ */
+function getLegacyStorageConfig(): HybridStorageConfig {
   return {
     memory: {
       enabled: true,
@@ -46,6 +113,24 @@ function getStorageConfig(): HybridStorageConfig {
 }
 
 /**
+ * Map cache strategy from configuration to HybridStorageConfig
+ */
+function mapCacheStrategy(strategy: string): CacheStrategy {
+  switch (strategy) {
+    case 'write-through':
+      return CacheStrategy.WRITE_THROUGH;
+    case 'write-behind':
+      return CacheStrategy.WRITE_BEHIND;
+    case 'read-through':
+      return CacheStrategy.READ_THROUGH;
+    case 'cache-aside':
+      return CacheStrategy.CACHE_ASIDE;
+    default:
+      return CacheStrategy.READ_THROUGH;
+  }
+}
+
+/**
  * Initialize the global storage instance
  */
 export async function initializeStorage(): Promise<void> {
@@ -55,7 +140,11 @@ export async function initializeStorage(): Promise<void> {
   }
 
   try {
-    const config = getStorageConfig();
+    // Initialize configuration manager first
+    const configManager = getConfigurationManager();
+    await configManager.load();
+    
+    const config = await getStorageConfig();
     globalStorage = new HybridStorageProvider(config);
     
     logInfo(`Storage initialized successfully - strategy: ${config.strategy}, memory: ${config.memory?.enabled}, pglite: ${config.pglite?.enabled}, github: ${config.github?.enabled}`);
@@ -65,6 +154,14 @@ export async function initializeStorage(): Promise<void> {
       const hybridConfig = globalStorage.getHybridConfig();
       logInfo(`Storage configuration: ${JSON.stringify(hybridConfig, null, 2)}`);
     }
+    
+    // Watch for configuration changes that affect storage
+    configManager.watch('storage', async (newValue, oldValue) => {
+      logInfo('Storage configuration changed, considering reinitialization...');
+      // Note: Full reinitialization would require disposing current storage
+      // and creating a new one. For now, we log the change.
+      // In production, this might trigger a graceful restart or hot-reload.
+    });
     
   } catch (error) {
     logError('Failed to initialize storage', error);
@@ -101,6 +198,19 @@ export async function disposeStorage(): Promise<void> {
 }
 
 /**
+ * Reset global state for testing - TEST ONLY
+ * Forces reinitialization on next initializeStorage() call
+ */
+export function __resetStorageForTesting(): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('__resetStorageForTesting() can only be called in test environment');
+  }
+  globalStorage = null;
+  globalConfigManager = null;
+  globalRequestDeduplicator.clear();
+}
+
+/**
  * Get cached data with automatic fallback to provided fetch function
  * This is the main interface for tool handlers to use caching
  */
@@ -124,21 +234,32 @@ export async function getCachedData<T>(
       return cached;
     }
     
-    // Cache miss - fetch fresh data
-    logInfo(`Cache miss for key: ${key}, fetching fresh data`);
-    const freshData = await fetchFunction();
-    
-    // Store in cache for future use
-    await storage.set(key, freshData, ttl);
+    // Cache miss - deduplicate the fetch request
+    logInfo(`Cache miss for key: ${key}, fetching fresh data with deduplication`);
+    const freshData = await globalRequestDeduplicator.deduplicate(
+      key,
+      async () => {
+        // Double-check cache in case another request populated it
+        const rechecked = await storage.get(key);
+        if (rechecked !== undefined) {
+          return rechecked;
+        }
+        
+        // Fetch and cache
+        const result = await fetchFunction();
+        await storage.set(key, result, ttl);
+        return result;
+      }
+    );
     
     return freshData;
     
   } catch (error) {
     logError(`Error in getCachedData for key ${key}`, error);
     
-    // Fallback to direct fetch if caching fails
-    logWarning(`Falling back to direct fetch for key: ${key}`);
-    return await fetchFunction();
+    // Fallback to direct fetch with deduplication even if caching fails
+    logWarning(`Falling back to direct fetch with deduplication for key: ${key}`);
+    return await globalRequestDeduplicator.deduplicate(key, fetchFunction);
   }
 }
 
@@ -265,7 +386,14 @@ export function getStorageStats() {
   }
 
   const storage = getStorage();
-  return storage.getStats();
+  const storageStats = storage.getStats();
+  const deduplicationStats = globalRequestDeduplicator.getStats();
+  
+  // Combine storage stats with deduplication stats
+  return {
+    ...storageStats,
+    deduplication: deduplicationStats
+  };
 }
 
 /**
@@ -278,6 +406,57 @@ export function getCircuitBreakerStatus() {
 
   const storage = getStorage();
   return storage.getCircuitBreakerStatus();
+}
+
+/**
+ * Get request deduplication statistics
+ */
+export function getDeduplicationStats() {
+  return globalRequestDeduplicator.getStats();
+}
+
+/**
+ * Reset storage statistics for troubleshooting
+ * Useful for getting fresh metrics after making changes
+ * Note: For HybridStorageProvider, stats reset requires reinitialization
+ */
+export function resetStorageStats(): boolean {
+  if (!isStorageInitialized()) {
+    logWarning('Storage not initialized, cannot reset stats');
+    return false;
+  }
+
+  try {
+    const storage = getStorage();
+    
+    // Check if the storage provider has a resetStats method
+    if (typeof (storage as any).resetStats === 'function') {
+      (storage as any).resetStats();
+      logInfo('Storage statistics reset successfully');
+      return true;
+    } else {
+      // For HybridStorageProvider, we can't reset individual stats
+      // but we can document this limitation
+      logWarning('Current storage provider does not support stats reset.');
+      logInfo('To reset statistics, restart the server or reinitialize storage.');
+      return false;
+    }
+  } catch (error) {
+    logError('Error resetting storage statistics', error);
+    return false;
+  }
+}
+
+/**
+ * Check if storage statistics reset is supported
+ */
+export function isStatsResetSupported(): boolean {
+  if (!isStorageInitialized()) {
+    return false;
+  }
+
+  const storage = getStorage();
+  return typeof (storage as any).resetStats === 'function';
 }
 
 /**

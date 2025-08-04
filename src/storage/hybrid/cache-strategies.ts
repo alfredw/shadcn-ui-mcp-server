@@ -159,6 +159,16 @@ export interface HybridStorageStats {
     pglite: boolean;
     github: boolean;
   };
+  
+  /**
+   * Request deduplication statistics
+   */
+  deduplication: {
+    totalRequests: number;
+    deduplicatedRequests: number;
+    currentInFlight: number;
+    deduplicationRate: number;
+  };
 }
 
 /**
@@ -187,6 +197,12 @@ export function createDefaultStats(): HybridStorageStats {
       memory: true,
       pglite: true,
       github: true
+    },
+    deduplication: {
+      totalRequests: 0,
+      deduplicatedRequests: 0,
+      currentInFlight: 0,
+      deduplicationRate: 0
     }
   };
 }
