@@ -9,6 +9,15 @@ import { handleClearCache } from './commands/clear-cache.js';
 import { handleRefreshCache } from './commands/refresh-cache.js';
 import { handleInspectCache } from './commands/inspect-cache.js';
 import { handleOfflineMode } from './commands/offline-mode.js';
+import { 
+  handleConfigShow,
+  handleConfigSet,
+  handleConfigProfile,
+  handleConfigValidate,
+  handleConfigExport,
+  handleConfigImport,
+  handleConfigReset
+} from './commands/config-management.js';
 
 /**
  * Setup cache-related CLI commands
@@ -25,6 +34,8 @@ export function setupCacheCommands(program: Command): void {
     .description('Display cache statistics and metrics')
     .option('-f, --format <format>', 'output format (table|json)', 'table')
     .option('-d, --detailed', 'show detailed statistics')
+    .option('-l, --latency', 'show response time percentiles (p50, p95, p99)')
+    .option('-h, --history <count>', 'show last N operations history', parseInt)
     .action(async (options) => {
       await handleCacheStats(options);
     });
@@ -79,6 +90,73 @@ export function setupCacheCommands(program: Command): void {
     .option('--format <format>', 'output format (table|json)', 'table')
     .action(async (options) => {
       await handleOfflineMode(options);
+    });
+
+  // Configuration management commands
+  const config = cache
+    .command('config')
+    .description('Configuration management commands');
+
+  config
+    .command('show [path]')
+    .description('Show current configuration or specific path')
+    .option('-f, --format <format>', 'output format (table|json)', 'json')
+    .action(async (path, options) => {
+      await handleConfigShow(path, options);
+    });
+
+  config
+    .command('set <path> <value>')
+    .description('Set configuration value')
+    .option('-f, --format <format>', 'output format (table|json)', 'table')
+    .option('--validate', 'validate configuration after setting')
+    .action(async (path, value, options) => {
+      await handleConfigSet(path, value, options);
+    });
+
+  config
+    .command('profile [name]')
+    .description('Apply configuration profile')
+    .option('-f, --format <format>', 'output format (table|json)', 'table')
+    .option('-l, --list', 'list available profiles')
+    .option('-d, --describe', 'describe profile configuration')
+    .action(async (name, options) => {
+      await handleConfigProfile(name, options);
+    });
+
+  config
+    .command('validate')
+    .description('Validate current configuration')
+    .option('-f, --format <format>', 'output format (table|json)', 'table')
+    .action(async (options) => {
+      await handleConfigValidate(options);
+    });
+
+  config
+    .command('export [file]')
+    .description('Export configuration to file')
+    .option('-f, --format <format>', 'output format (table|json)', 'json')
+    .option('--pretty', 'pretty-print JSON output')
+    .action(async (file, options) => {
+      await handleConfigExport({ ...options, file });
+    });
+
+  config
+    .command('import <file>')
+    .description('Import configuration from file')
+    .option('-f, --format <format>', 'output format (table|json)', 'table')
+    .option('--merge', 'merge with existing configuration')
+    .option('--validate', 'validate configuration after import')
+    .action(async (file, options) => {
+      await handleConfigImport({ ...options, file });
+    });
+
+  config
+    .command('reset')
+    .description('Reset configuration to defaults')
+    .option('-f, --format <format>', 'output format (table|json)', 'table')
+    .action(async (options) => {
+      await handleConfigReset(options);
     });
 }
 

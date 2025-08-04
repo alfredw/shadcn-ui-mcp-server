@@ -4,20 +4,22 @@
 
 import chalk from 'chalk';
 import { getStorage, isStorageInitialized, getStorageStats, getCircuitBreakerStatus } from '../../utils/storage-integration.js';
-import { createStatsTable } from '../formatters/table.js';
-import { formatStatsAsJson } from '../formatters/json.js';
+import { createStatsTable, createLatencyTable, createHistoryTable } from '../formatters/table.js';
+import { formatStatsAsJson, formatEnhancedStatsAsJson } from '../formatters/json.js';
 import { createSpinner } from '../utils/progress.js';
 
 export interface CacheStatsOptions {
   format?: 'table' | 'json';
   detailed?: boolean;
+  latency?: boolean;
+  history?: number;
 }
 
 /**
  * Display cache statistics
  */
 export async function handleCacheStats(options: CacheStatsOptions = {}): Promise<void> {
-  const { format = 'table', detailed = false } = options;
+  const { format = 'table', detailed = false, latency = false, history } = options;
   
   const spinner = createSpinner('Collecting cache statistics...').start();
 
@@ -45,7 +47,12 @@ export async function handleCacheStats(options: CacheStatsOptions = {}): Promise
 
     // Display results based on format
     if (format === 'json') {
-      console.log(formatStatsAsJson(stats, detailed));
+      // Use enhanced formatter if latency or history flags are used
+      if (latency || history) {
+        console.log(formatEnhancedStatsAsJson(stats, { detailed, latency, history }));
+      } else {
+        console.log(formatStatsAsJson(stats, detailed));
+      }
     } else {
       console.log();
       console.log(chalk.cyan.bold('📊 Cache Statistics'));
@@ -69,6 +76,24 @@ export async function handleCacheStats(options: CacheStatsOptions = {}): Promise
         if (stats.circuitBreaker?.failureCount !== undefined) {
           console.log(`Recent Failures: ${stats.circuitBreaker.failureCount}`);
         }
+      }
+
+      // Show latency percentiles if requested
+      if (latency) {
+        console.log();
+        console.log(chalk.cyan.bold('📈 Latency Percentiles'));
+        console.log(chalk.grey('─'.repeat(35)));
+        console.log();
+        console.log(createLatencyTable(stats));
+      }
+
+      // Show operation history if requested
+      if (history) {
+        console.log();
+        console.log(chalk.cyan.bold(`🕒 Recent Operations (Last ${history})`));
+        console.log(chalk.grey('─'.repeat(40)));
+        console.log();
+        console.log(createHistoryTable(stats, history));
       }
 
       // Show detailed configuration if requested
