@@ -93,6 +93,48 @@ export interface CacheConfiguration {
     resetTimeout: number;    // ms
   };
   
+  // Error recovery
+  recovery: {
+    enabled: boolean;
+    maxRetries: number;
+    backoffMs: number;
+    backoffMultiplier: number;
+    maxBackoffMs: number;
+    fallbackChain: {
+      enabled: boolean;
+      staleMaxAge: number;   // ms
+      allowPartialData: boolean;
+      timeoutMs: number;     // ms
+    };
+    notifications: {
+      enabled: boolean;
+      retentionMs: number;   // ms
+      maxNotifications: number;
+    };
+    monitoring: {
+      enabled: boolean;
+      metricsRetention: number;  // ms
+      alertThresholds: {
+        errorRate: number;     // 0-1
+        recoveryTime: number;  // ms
+      };
+    };
+    tiers: {
+      memory: {
+        maxRetries: number;
+        timeoutMs: number;
+      };
+      pglite: {
+        maxRetries: number;
+        timeoutMs: number;
+      };
+      github: {
+        maxRetries: number;
+        timeoutMs: number;
+      };
+    };
+  };
+  
   // Feature flags
   features: {
     offlineMode: boolean;

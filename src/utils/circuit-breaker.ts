@@ -72,7 +72,7 @@ export class CircuitBreaker {
   /**
    * Handle successful execution
    */
-  private onSuccess(): void {
+  onSuccess(): void {
     this.failures = 0;
     
     if (this.state === CircuitBreakerState.HALF_OPEN) {
@@ -87,7 +87,7 @@ export class CircuitBreaker {
   /**
    * Handle failed execution
    */
-  private onFailure(): void {
+  onFailure(): void {
     this.failures++;
     this.lastFailureTime = Date.now();
 

@@ -245,6 +245,128 @@ export class EnvironmentConfigSource implements ConfigSource {
       config.features = featuresConfig;
     }
     
+    // Error recovery configuration
+    const recoveryConfig: any = {};
+    if (process.env.SHADCN_MCP_RECOVERY_ENABLED !== undefined) {
+      recoveryConfig.enabled = process.env.SHADCN_MCP_RECOVERY_ENABLED === 'true';
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_MAX_RETRIES) {
+      recoveryConfig.maxRetries = parseInt(process.env.SHADCN_MCP_RECOVERY_MAX_RETRIES, 10);
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_BACKOFF_MS) {
+      recoveryConfig.backoffMs = parseInt(process.env.SHADCN_MCP_RECOVERY_BACKOFF_MS, 10);
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_BACKOFF_MULTIPLIER) {
+      recoveryConfig.backoffMultiplier = parseFloat(process.env.SHADCN_MCP_RECOVERY_BACKOFF_MULTIPLIER);
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_MAX_BACKOFF_MS) {
+      recoveryConfig.maxBackoffMs = parseInt(process.env.SHADCN_MCP_RECOVERY_MAX_BACKOFF_MS, 10);
+    }
+    
+    // Fallback chain configuration
+    const fallbackChainConfig: any = {};
+    if (process.env.SHADCN_MCP_FALLBACK_CHAIN_ENABLED !== undefined) {
+      fallbackChainConfig.enabled = process.env.SHADCN_MCP_FALLBACK_CHAIN_ENABLED === 'true';
+    }
+    if (process.env.SHADCN_MCP_FALLBACK_STALE_MAX_AGE) {
+      fallbackChainConfig.staleMaxAge = parseInt(process.env.SHADCN_MCP_FALLBACK_STALE_MAX_AGE, 10);
+    }
+    if (process.env.SHADCN_MCP_FALLBACK_ALLOW_PARTIAL !== undefined) {
+      fallbackChainConfig.allowPartialData = process.env.SHADCN_MCP_FALLBACK_ALLOW_PARTIAL === 'true';
+    }
+    if (process.env.SHADCN_MCP_FALLBACK_TIMEOUT_MS) {
+      fallbackChainConfig.timeoutMs = parseInt(process.env.SHADCN_MCP_FALLBACK_TIMEOUT_MS, 10);
+    }
+    if (Object.keys(fallbackChainConfig).length > 0) {
+      recoveryConfig.fallbackChain = fallbackChainConfig;
+    }
+    
+    // Notifications configuration
+    const notificationsConfig: any = {};
+    if (process.env.SHADCN_MCP_NOTIFICATIONS_ENABLED !== undefined) {
+      notificationsConfig.enabled = process.env.SHADCN_MCP_NOTIFICATIONS_ENABLED === 'true';
+    }
+    if (process.env.SHADCN_MCP_NOTIFICATIONS_RETENTION_MS) {
+      notificationsConfig.retentionMs = parseInt(process.env.SHADCN_MCP_NOTIFICATIONS_RETENTION_MS, 10);
+    }
+    if (process.env.SHADCN_MCP_NOTIFICATIONS_MAX) {
+      notificationsConfig.maxNotifications = parseInt(process.env.SHADCN_MCP_NOTIFICATIONS_MAX, 10);
+    }
+    if (Object.keys(notificationsConfig).length > 0) {
+      recoveryConfig.notifications = notificationsConfig;
+    }
+    
+    // Recovery monitoring configuration
+    const recoveryMonitoringConfig: any = {};
+    if (process.env.SHADCN_MCP_RECOVERY_MONITORING_ENABLED !== undefined) {
+      recoveryMonitoringConfig.enabled = process.env.SHADCN_MCP_RECOVERY_MONITORING_ENABLED === 'true';
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_METRICS_RETENTION) {
+      recoveryMonitoringConfig.metricsRetention = parseInt(process.env.SHADCN_MCP_RECOVERY_METRICS_RETENTION, 10);
+    }
+    
+    // Alert thresholds
+    const alertThresholds: any = {};
+    if (process.env.SHADCN_MCP_RECOVERY_ERROR_RATE_THRESHOLD) {
+      alertThresholds.errorRate = parseFloat(process.env.SHADCN_MCP_RECOVERY_ERROR_RATE_THRESHOLD);
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_TIME_THRESHOLD) {
+      alertThresholds.recoveryTime = parseInt(process.env.SHADCN_MCP_RECOVERY_TIME_THRESHOLD, 10);
+    }
+    if (Object.keys(alertThresholds).length > 0) {
+      recoveryMonitoringConfig.alertThresholds = alertThresholds;
+    }
+    if (Object.keys(recoveryMonitoringConfig).length > 0) {
+      recoveryConfig.monitoring = recoveryMonitoringConfig;
+    }
+    
+    // Tier-specific configuration
+    const tiersConfig: any = {};
+    
+    // Memory tier
+    const memoryTierConfig: any = {};
+    if (process.env.SHADCN_MCP_RECOVERY_MEMORY_MAX_RETRIES) {
+      memoryTierConfig.maxRetries = parseInt(process.env.SHADCN_MCP_RECOVERY_MEMORY_MAX_RETRIES, 10);
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_MEMORY_TIMEOUT_MS) {
+      memoryTierConfig.timeoutMs = parseInt(process.env.SHADCN_MCP_RECOVERY_MEMORY_TIMEOUT_MS, 10);
+    }
+    if (Object.keys(memoryTierConfig).length > 0) {
+      tiersConfig.memory = memoryTierConfig;
+    }
+    
+    // PGLite tier
+    const pgliteTierConfig: any = {};
+    if (process.env.SHADCN_MCP_RECOVERY_PGLITE_MAX_RETRIES) {
+      pgliteTierConfig.maxRetries = parseInt(process.env.SHADCN_MCP_RECOVERY_PGLITE_MAX_RETRIES, 10);
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_PGLITE_TIMEOUT_MS) {
+      pgliteTierConfig.timeoutMs = parseInt(process.env.SHADCN_MCP_RECOVERY_PGLITE_TIMEOUT_MS, 10);
+    }
+    if (Object.keys(pgliteTierConfig).length > 0) {
+      tiersConfig.pglite = pgliteTierConfig;
+    }
+    
+    // GitHub tier
+    const githubTierConfig: any = {};
+    if (process.env.SHADCN_MCP_RECOVERY_GITHUB_MAX_RETRIES) {
+      githubTierConfig.maxRetries = parseInt(process.env.SHADCN_MCP_RECOVERY_GITHUB_MAX_RETRIES, 10);
+    }
+    if (process.env.SHADCN_MCP_RECOVERY_GITHUB_TIMEOUT_MS) {
+      githubTierConfig.timeoutMs = parseInt(process.env.SHADCN_MCP_RECOVERY_GITHUB_TIMEOUT_MS, 10);
+    }
+    if (Object.keys(githubTierConfig).length > 0) {
+      tiersConfig.github = githubTierConfig;
+    }
+    
+    if (Object.keys(tiersConfig).length > 0) {
+      recoveryConfig.tiers = tiersConfig;
+    }
+    
+    if (Object.keys(recoveryConfig).length > 0) {
+      config.recovery = recoveryConfig;
+    }
+    
     return config;
   }
   

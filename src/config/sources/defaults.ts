@@ -72,6 +72,46 @@ export class DefaultConfigSource implements ConfigSource {
         timeout: 60000,
         resetTimeout: 60000
       },
+      recovery: {
+        enabled: true,
+        maxRetries: 3,
+        backoffMs: 1000,
+        backoffMultiplier: 2,
+        maxBackoffMs: 30000,
+        fallbackChain: {
+          enabled: true,
+          staleMaxAge: 24 * 60 * 60 * 1000, // 24 hours
+          allowPartialData: true,
+          timeoutMs: 30000
+        },
+        notifications: {
+          enabled: true,
+          retentionMs: 60 * 60 * 1000, // 1 hour
+          maxNotifications: 1000
+        },
+        monitoring: {
+          enabled: true,
+          metricsRetention: 24 * 60 * 60 * 1000, // 24 hours
+          alertThresholds: {
+            errorRate: 0.2, // 20% error rate threshold
+            recoveryTime: 5000 // 5 second recovery time threshold
+          }
+        },
+        tiers: {
+          memory: {
+            maxRetries: 2,
+            timeoutMs: 5000
+          },
+          pglite: {
+            maxRetries: 3,
+            timeoutMs: 10000
+          },
+          github: {
+            maxRetries: 2,
+            timeoutMs: 30000
+          }
+        }
+      },
       features: {
         offlineMode: false,
         migration: true,

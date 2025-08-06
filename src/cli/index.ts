@@ -18,6 +18,12 @@ import {
   handleConfigImport,
   handleConfigReset
 } from './commands/config-management.js';
+import {
+  handleRecoveryStatus,
+  handleRecoveryStats,
+  handleCircuitBreakerReset,
+  handleClearErrorHistory
+} from './commands/error-recovery.js';
 
 /**
  * Setup cache-related CLI commands
@@ -157,6 +163,57 @@ export function setupCacheCommands(program: Command): void {
     .option('-f, --format <format>', 'output format (table|json)', 'table')
     .action(async (options) => {
       await handleConfigReset(options);
+    });
+}
+
+/**
+ * Setup error recovery CLI commands
+ */
+export function setupErrorRecoveryCommands(program: Command): void {
+  // Error recovery command group
+  const recovery = program
+    .command('recovery')
+    .description('Error recovery and monitoring commands');
+
+  // Recovery status command
+  recovery
+    .command('status')
+    .description('Display current error recovery status and active issues')
+    .option('-f, --format <format>', 'output format (table|json)', 'table')
+    .option('-d, --detailed', 'show detailed status information')
+    .option('-m, --minutes <count>', 'time window for active issues in minutes', parseInt, 5)
+    .action(async (options) => {
+      await handleRecoveryStatus(options);
+    });
+
+  // Recovery statistics command
+  recovery
+    .command('stats')
+    .description('Display recovery statistics and metrics')
+    .option('-f, --format <format>', 'output format (table|json)', 'table')
+    .option('-t, --tier <tier>', 'show statistics for specific tier')
+    .option('-m, --minutes <count>', 'time window for recent metrics in minutes', parseInt, 60)
+    .option('-d, --detailed', 'show detailed statistics including slowest operations')
+    .action(async (options) => {
+      await handleRecoveryStats(options);
+    });
+
+  // Circuit breaker reset command
+  recovery
+    .command('reset-circuit-breaker [tier]')
+    .description('Reset circuit breakers (all tiers or specific tier)')
+    .option('-f, --force', 'skip confirmation prompt')
+    .action(async (tier, options) => {
+      await handleCircuitBreakerReset({ ...options, tier });
+    });
+
+  // Error history clear command
+  recovery
+    .command('clear-errors [tier]')
+    .description('Clear error history (all tiers or specific tier)')
+    .option('-f, --force', 'skip confirmation prompt')
+    .action(async (tier, options) => {
+      await handleClearErrorHistory({ ...options, tier });
     });
 }
 
