@@ -24,6 +24,7 @@ import {
   handleCircuitBreakerReset,
   handleClearErrorHistory
 } from './commands/error-recovery.js';
+import { handleMonitoringDashboard } from './commands/monitor-dashboard.js';
 
 /**
  * Setup cache-related CLI commands
@@ -214,6 +215,30 @@ export function setupErrorRecoveryCommands(program: Command): void {
     .option('-f, --force', 'skip confirmation prompt')
     .action(async (tier, options) => {
       await handleClearErrorHistory({ ...options, tier });
+    });
+}
+
+/**
+ * Setup monitoring CLI commands
+ */
+export function setupMonitoringCommands(program: Command): void {
+  // Monitoring command group
+  const monitor = program
+    .command('monitor')
+    .alias('mon')
+    .description('Performance monitoring and dashboard commands');
+
+  // Dashboard command
+  monitor
+    .command('dashboard')
+    .alias('dash')
+    .description('Display real-time performance monitoring dashboard')
+    .option('-w, --watch', 'watch mode - continuously update dashboard')
+    .option('-i, --interval <seconds>', 'refresh interval in seconds for watch mode', parseInt, 5)
+    .option('-e, --export <format>', 'export metrics to file (json|csv)')
+    .option('-f, --filename <filename>', 'custom filename for export')
+    .action(async (options) => {
+      await handleMonitoringDashboard(options);
     });
 }
 

@@ -16,7 +16,7 @@ import { Command } from 'commander';
 import { setupHandlers } from './handler.js';
 import { validateFrameworkSelection, getAxiosImplementation } from './utils/framework.js';
 import { initializeStorage, disposeStorage } from './utils/storage-integration.js';
-import { setupCacheCommands, setupCacheFlags, handleCacheFlags, isCacheCommand, showCacheHelp } from './cli/index.js';
+import { setupCacheCommands, setupCacheFlags, handleCacheFlags, isCacheCommand, showCacheHelp, setupMonitoringCommands } from './cli/index.js';
 import { z } from 'zod';
 import { 
   toolHandlers,
@@ -71,6 +71,9 @@ async function setupCommandLine() {
   // Setup cache commands and flags
   setupCacheCommands(program);
   setupCacheFlags(program);
+  
+  // Setup monitoring commands
+  setupMonitoringCommands(program);
 
   // Custom help text
   program.on('--help', () => {

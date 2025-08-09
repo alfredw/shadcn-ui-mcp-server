@@ -50,6 +50,159 @@ export function formatPercentage(value: number, precision = 1): string {
 }
 
 /**
+ * Format hit rate with appropriate color coding
+ */
+export function formatHitRate(hitRate: number): string {
+  const percentage = hitRate.toFixed(1) + '%';
+  
+  if (hitRate >= 70) return chalk.green(percentage);
+  if (hitRate >= 50) return chalk.yellow(percentage);
+  return chalk.red(percentage);
+}
+
+/**
+ * Format response time with color coding
+ */
+export function formatResponseTime(ms: number): string {
+  const timeStr = ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+  
+  if (ms < 100) return chalk.green(timeStr);
+  if (ms < 1000) return chalk.yellow(timeStr);
+  return chalk.red(timeStr);
+}
+
+/**
+ * Format storage usage with color coding
+ */
+export function formatStorageUsage(used: number, max: number): string {
+  const usedMB = (used / 1024 / 1024).toFixed(1);
+  const maxMB = (max / 1024 / 1024).toFixed(0);
+  const percentage = max > 0 ? (used / max * 100).toFixed(1) : '0.0';
+  
+  const color = parseFloat(percentage) < 70 ? 'green' :
+               parseFloat(percentage) < 90 ? 'yellow' : 'red';
+  
+  return chalk[color](`${usedMB}/${maxMB} MB (${percentage}%)`);
+}
+
+/**
+ * Format tier status with availability indicator
+ */
+export function formatTierStatus(available: boolean): string {
+  return available 
+    ? chalk.green('✓ Online') 
+    : chalk.red('✗ Offline');
+}
+
+/**
+ * Format API rate limit with color coding
+ */
+export function formatRateLimit(remaining: number, total: number = 5000): string {
+  const rateStr = `${remaining}/${total}`;
+  
+  if (remaining >= total * 0.2) return chalk.green(rateStr); // 20%+
+  if (remaining >= total * 0.05) return chalk.yellow(rateStr); // 5%+
+  return chalk.red(rateStr);
+}
+
+/**
+ * Format alert severity with appropriate colors and icons
+ */
+export function formatAlertSeverity(severity: 'info' | 'warning' | 'critical'): string {
+  switch (severity) {
+    case 'critical':
+      return chalk.red('🚨 CRITICAL');
+    case 'warning':
+      return chalk.yellow('⚠️ WARNING');
+    case 'info':
+      return chalk.blue('ℹ️ INFO');
+    default:
+      return String(severity).toUpperCase();
+  }
+}
+
+/**
+ * Create a monitoring metrics table
+ */
+export function createMonitoringTable(title: string, data: Array<[string, string | number]>): string {
+  const table = new Table({
+    head: ['Metric', 'Value'],
+    style: { head: ['cyan'] }
+  });
+  
+  data.forEach(([metric, value]) => {
+    table.push([metric, typeof value === 'string' ? value : value.toString()]);
+  });
+  
+  return `${chalk.bold(title)}\n${table.toString()}`;
+}
+
+/**
+ * Create an alerts summary table
+ */
+export function createAlertsTable(alerts: Array<{
+  type: string;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  timestamp?: number;
+}>): string {
+  if (alerts.length === 0) {
+    return chalk.bold.green('\n✅ No Active Alerts\nAll systems operating normally');
+  }
+  
+  const table = new Table({
+    head: ['Severity', 'Type', 'Message', 'Time'],
+    style: { head: ['cyan'] }
+  });
+  
+  alerts.forEach(alert => {
+    const timeStr = alert.timestamp 
+      ? formatDuration(Date.now() - alert.timestamp) + ' ago'
+      : 'Unknown';
+      
+    table.push([
+      formatAlertSeverity(alert.severity),
+      alert.type,
+      alert.message,
+      timeStr
+    ]);
+  });
+  
+  return `${chalk.bold.red('\n⚠️  Active Alerts')}\n${table.toString()}`;
+}
+
+/**
+ * Create a system health summary table
+ */
+export function createHealthSummaryTable(healthStatus: {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  summary: { total: number; healthy: number; degraded: number; unhealthy: number; };
+  timestamp: string;
+}): string {
+  const statusColor = healthStatus.status === 'healthy' ? 'green' :
+                     healthStatus.status === 'degraded' ? 'yellow' : 'red';
+  
+  const statusIcon = healthStatus.status === 'healthy' ? '✅' :
+                    healthStatus.status === 'degraded' ? '⚠️' : '🚨';
+  
+  const table = new Table({
+    head: ['Health Check', 'Value'],
+    style: { head: ['cyan'] }
+  });
+  
+  table.push(
+    ['Overall Status', chalk[statusColor](`${statusIcon} ${healthStatus.status.toUpperCase()}`)],
+    ['Total Checks', healthStatus.summary.total.toString()],
+    ['Healthy', chalk.green(healthStatus.summary.healthy.toString())],
+    ['Degraded', chalk.yellow(healthStatus.summary.degraded.toString())],
+    ['Unhealthy', chalk.red(healthStatus.summary.unhealthy.toString())],
+    ['Last Check', formatDate(healthStatus.timestamp)]
+  );
+  
+  return `${chalk.bold('🏥 System Health')}\n${table.toString()}`;
+}
+
+/**
  * Create a table for cache statistics
  */
 export function createStatsTable(stats: any): string {
