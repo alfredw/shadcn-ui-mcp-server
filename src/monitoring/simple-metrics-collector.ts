@@ -54,7 +54,20 @@ export class SimpleMetricsCollector {
   private config: ConfigurationManager;
   
   constructor() {
-    this.config = getConfigurationManager();
+    try {
+      this.config = getConfigurationManager();
+    } catch (error) {
+      logger.error(`Failed to get configuration manager, using defaults: ${error}`);
+      // Create a minimal mock config for graceful degradation
+      this.config = {
+        getAll: () => ({
+          storage: {
+            memory: { maxSize: 50 * 1024 * 1024 },
+            pglite: { maxSize: 100 * 1024 * 1024 }
+          }
+        })
+      } as any;
+    }
     this.currentMetrics = this.initializeMetrics();
     this.startCollectionInterval();
   }
@@ -248,7 +261,7 @@ export class SimpleMetricsCollector {
         }
       };
     } catch (error) {
-      logger.error('Failed to get storage size:', error);
+      logger.error(`Failed to get storage size: ${error}`);
       return {
         memory: { used: 0, max: 50 * 1024 * 1024 },
         pglite: { used: 0, max: 100 * 1024 * 1024 }

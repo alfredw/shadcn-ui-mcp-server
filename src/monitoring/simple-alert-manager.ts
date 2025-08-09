@@ -42,8 +42,20 @@ export class SimpleAlertManager {
     try {
       const config = this.config.getAll();
       
-      // Load from config or use defaults
-      // Note: config.monitoring.alerts is AlertConfig[] array, not threshold object
+      // Check if config has monitoring thresholds in a custom format
+      const monitoring = config.monitoring as any;
+      if (monitoring && monitoring.alerts && typeof monitoring.alerts === 'object' && !Array.isArray(monitoring.alerts)) {
+        // Use custom threshold configuration if available
+        return {
+          cacheHitRate: monitoring.alerts.cacheHitRate ?? 50,
+          errorRate: monitoring.alerts.errorRate ?? 10,
+          storageUsage: monitoring.alerts.storageUsage ?? 80,
+          rateLimitRemaining: monitoring.alerts.rateLimitRemaining ?? 100,
+          tierResponseTime: monitoring.alerts.tierResponseTime ?? 5000
+        };
+      }
+      
+      // Use defaults if no custom configuration
       return {
         cacheHitRate: 50, // Alert if below 50%
         errorRate: 10,    // Alert if above 10%

@@ -47,6 +47,10 @@ const mockedGetConfigurationManager = getConfigurationManager as MockedFunction<
 describe('SimpleMetricsCollector', () => {
   let collector: SimpleMetricsCollector;
   
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  
   const mockHybridStats: HybridStorageStats = {
     hits: { memory: 100, pglite: 50, github: 25 },
     misses: 25,
@@ -345,10 +349,13 @@ describe('SimpleMetricsCollector', () => {
         throw new Error('Config error');
       });
       
-      // Act & Assert - Should throw during construction due to config error
+      // Act & Assert - Should handle error gracefully and not throw
       expect(() => {
         collector = new SimpleMetricsCollector();
-      }).toThrow('Config error');
+      }).not.toThrow();
+      
+      // Should still be functional with fallback config
+      expect(collector).toBeDefined();
     });
   });
 });
