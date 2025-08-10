@@ -69,13 +69,23 @@ export class HybridStorageProvider extends BaseStorageProvider {
     this.circuitBreaker = new StorageCircuitBreaker(mergedConfig.circuitBreaker);
     
     // Initialize providers based on configuration
-    this.initializeProviders();
+    // Note: This will be called asynchronously after construction
+    this.initializeProvidersAsync();
   }
   
   /**
+   * Async wrapper for provider initialization
+   */
+  private initializeProvidersAsync(): void {
+    this.initializeProviders().catch(error => {
+      this.debug(`Error during provider initialization: ${error}`);
+    });
+  }
+
+  /**
    * Initialize storage providers based on configuration
    */
-  private initializeProviders(): void {
+  private async initializeProviders(): Promise<void> {
     // Initialize L1 Memory Cache
     if (this.hybridConfig.memory.enabled) {
       try {
@@ -96,6 +106,7 @@ export class HybridStorageProvider extends BaseStorageProvider {
     if (this.hybridConfig.pglite.enabled) {
       try {
         this.providers.pglite = new PGLiteStorageProvider();
+        await this.providers.pglite.initialize(); // Initialize the database connection
         this.stats.tierAvailability.pglite = true;
         this.debug('Initialized L2 PGLite provider');
       } catch (error) {

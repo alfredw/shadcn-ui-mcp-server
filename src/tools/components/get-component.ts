@@ -16,8 +16,19 @@ export async function handleGetComponent({ componentName }: { componentName: str
       cachedTTL
     );
     
+    // Handle both direct string response and structured Component object from storage
+    let componentSource: string;
+    if (typeof sourceCode === 'string') {
+      componentSource = sourceCode;
+    } else if (sourceCode && typeof sourceCode === 'object' && sourceCode !== null && 'sourceCode' in sourceCode) {
+      // Handle Component object from PGLite storage - use bracket notation for safe access
+      componentSource = sourceCode['sourceCode'] as string;
+    } else {
+      componentSource = JSON.stringify(sourceCode, null, 2);
+    }
+    
     return {
-      content: [{ type: "text", text: sourceCode }]
+      content: [{ type: "text", text: componentSource }]
     };
   } catch (error) {
     logError(`Failed to get component "${componentName}"`, error);

@@ -16,8 +16,26 @@ export async function handleGetComponentDemo({ componentName }: { componentName:
       cachedTTL
     );
     
+    // Handle both direct string response and structured Component object from storage
+    let componentDemo: string;
+    if (typeof demoCode === 'string') {
+      componentDemo = demoCode;
+    } else if (demoCode && typeof demoCode === 'object' && demoCode !== null) {
+      // Check if it looks like a Component object (has framework and name properties)
+      if ('framework' in demoCode && 'name' in demoCode) {
+        // Handle Component object from PGLite storage - use bracket notation for safe access
+        const demo = demoCode['demoCode'];
+        componentDemo = typeof demo === 'string' ? demo : '';
+      } else {
+        // Generic object - JSON stringify it
+        componentDemo = JSON.stringify(demoCode, null, 2);
+      }
+    } else {
+      componentDemo = JSON.stringify(demoCode, null, 2);
+    }
+    
     return {
-      content: [{ type: "text", text: demoCode }]
+      content: [{ type: "text", text: componentDemo }]
     };
   } catch (error) {
     logError(`Failed to get demo for component "${componentName}"`, error);

@@ -11,6 +11,7 @@ import {
 import { ConfigurationManager, CacheConfiguration } from '../config/index.js';
 import { logError, logInfo, logWarning } from './logger.js';
 import { RequestDeduplicator } from './request-deduplicator.js';
+import { initializeDatabase } from '../storage/database/connection.js';
 
 /**
  * Global storage instance for the MCP server
@@ -144,7 +145,19 @@ export async function initializeStorage(): Promise<void> {
     const configManager = getConfigurationManager();
     await configManager.load();
     
+    // Initialize PGLite database if PGLite storage is enabled
     const config = await getStorageConfig();
+    if (config.pglite?.enabled) {
+      try {
+        await initializeDatabase();
+        logInfo('PGLite database initialized successfully');
+      } catch (error) {
+        logWarning(`Failed to initialize PGLite database, disabling PGLite storage: ${error}`);
+        // Disable PGLite in the config so it doesn't cause further issues
+        config.pglite.enabled = false;
+      }
+    }
+    
     globalStorage = new HybridStorageProvider(config);
     
     logInfo(`Storage initialized successfully - strategy: ${config.strategy}, memory: ${config.memory?.enabled}, pglite: ${config.pglite?.enabled}, github: ${config.github?.enabled}`);
